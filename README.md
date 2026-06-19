@@ -88,12 +88,24 @@ are user-editable, and "Other" is a no-implications escape hatch.
 
 ## Outcome & status
 
-**Phase A complete:** the pure simulation engine + a Vitest suite (24 tests)
-covering the depletion waterfall, future-dated tax events, credit interest,
-ledger reconciliation, and the spend self-consistency that fixes V1's broken
-trim math. **Phase 0:** scaffold deployed to Vercel, iframe-embeddable by
-lizbuilds.ai. Before/after vs. V1 (monolithic cash → per-account audit ledger;
-hardcoded → generic) fills in through Phases B–D.
+**Phase B complete:** the engine is wired to an interactive dashboard — hero
+metrics (runway, cash-zero date, Δ vs. baseline), a hand-rolled SVG
+cash-projection chart (display clamped at zero, with a baseline overlay), a
+stacked account-depletion visualization, an editable account list (add / edit /
+drag-reorder / delete, with the type dropdown and editable tax/cost
+implications), lever controls (housing, target spend, income streams, one-time
+events), and the audit ledger (monthly rollup, expandable per-account, with a
+transaction-level toggle). Loads the fictional sample by default.
+
+**Phase A:** the pure simulation engine + Vitest suite covering the depletion
+waterfall, future-dated tax events, credit interest, ledger reconciliation, and
+the spend self-consistency that fixes V1's broken trim math (41 tests total
+across the engine and UI helpers). **Phase 0:** scaffold deployed to Vercel,
+iframe-embeddable by lizbuilds.ai. Still ahead (Phases C–D): the major-asset-sale
+lever, built-in presets, save + shareable-URL state, and final polish.
+
+Before/after vs. V1: monolithic cash → per-account audit ledger; hardcoded
+personal numbers → a generic, type-driven account model.
 
 ## Screenshots
 
