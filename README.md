@@ -88,32 +88,33 @@ are user-editable, and "Other" is a no-implications escape hatch.
 
 ## Outcome & status
 
-**Phase C complete:** the major-asset-sale lever (net proceeds, closing costs,
-loan + tied-credit-line payoff, capital-gains tax scheduled to the following
-April, and stopping any associated income / carrying cost at the sale), computed
-ongoing costs surfaced per account, and the full account-type → implications
-behavior including the no-implications "Other" escape hatch. The chart x-axis
-auto-scales to the meaningful window (≈ cash-zero + margin, or the longer of
-current vs. baseline), so the ~9-month baseline reads cleanly against a 5-year
-horizon while a runway-extending lever stretches the axis.
+**Live and feature-complete through Phase D.** Built-in situation presets
+(Baseline, Zero housing cost, Dramatic lifestyle cut, Both combined, Survive to
+year-end — solved via binary search — and Landed a new role), Save-scenario to
+localStorage, and shareable-URL state: the scenario serializes to a compact
+`?s=` param on every change, so a refresh restores the current scenario and a
+copied link reproduces it exactly in a fresh tab. Hydration priority is URL >
+localStorage > sample, with an explicit "Reset to sample" for the clean demo.
 
-**Phase B:** the engine wired to an interactive dashboard — hero metrics, a
-hand-rolled SVG cash-projection chart (display clamped at zero, baseline
-overlay), a stacked account-depletion visualization, an editable account list
-(add / edit / drag-reorder / delete), lever controls, and the audit ledger
-(monthly rollup, expandable per-account, transaction-level toggle). **Phase A:**
-the pure simulation engine + Vitest suite covering the depletion waterfall,
-tax events, credit interest, ledger reconciliation, asset sale, and the spend
-self-consistency that fixes V1's broken trim math (47 tests). **Phase 0:**
-scaffold deployed to Vercel, iframe-embeddable by lizbuilds.ai. Still ahead
-(Phase D): built-in presets, save + shareable-URL state, and final polish.
+Earlier phases: **C** — major-asset-sale lever (net proceeds, closing costs,
+loan + tied-credit-line payoff, cap-gains tax to the following April, stopping
+associated income / carrying cost), computed ongoing costs per account, the full
+type → implications mapping with the "Other" escape hatch, and an auto-scaling
+chart x-axis. **B** — the dashboard (hero metrics, SVG cash-projection chart
+clamped at zero with a baseline overlay, stacked depletion visualization,
+editable drag-reorderable account list, lever controls, audit ledger with a
+transaction-level toggle). **A** — the pure engine + Vitest suite. **0** —
+scaffold deployed to Vercel, iframe-embeddable by lizbuilds.ai.
+
+**53 tests** across the engine, UI helpers, presets, chart window, and the
+shareable-URL round-trip.
 
 Before/after vs. V1: monolithic cash → per-account audit ledger; hardcoded
 personal numbers → a generic, type-driven account model.
 
 ## Screenshots
 
-_(Clean stills from the dummy scenario — captured in Phase D.)_
+![Runway Model dashboard — hero metrics, cash-projection chart, account-depletion visualization, accounts, and levers](docs/screenshots/dashboard.png)
 
 ## Live demo
 

@@ -2,16 +2,12 @@
 // Situation-framed presets.
 //
 // A preset is a pure transform of a scenario: apply(base) -> modified scenario.
-// They compose, so "Both Combined" can chain other presets in Phase D.
-//
-// Phase A ships the two presets relevant to the baseline-vs-recovery story:
-//   - "baseline"        : the scenario as-is (a visible depletion story)
-//   - "landed-new-role" : adds new income, visibly extending the runway
-// The remaining situation presets (Zero Housing Cost, Dramatic Lifestyle
-// Reduction, Both Combined, Survive to Year-End) are built in Phase D.
+// They are independent starting points (applied to the loaded baseline), and
+// "Both Combined" / "Survive to Year-End" compose or solve as needed.
 // =============================================================================
 
-import { addMonths } from "./engine/dates";
+import { addMonths, compareISO, parseISO } from "./engine/dates";
+import { simulate } from "./engine/simulate";
 import type { IncomeEvent, Scenario } from "./engine/types";
 
 export interface Preset {
@@ -21,28 +17,63 @@ export interface Preset {
   apply: (base: Scenario) => Scenario;
 }
 
-/** The new-role income stream, sized and timed off the scenario's start. */
+// --- individual transforms ---------------------------------------------------
+
+function zeroHousing(base: Scenario): Scenario {
+  return { ...base, levers: { ...base.levers, housing: { monthlyAmount: 0 } } };
+}
+
+function dramaticReduction(base: Scenario): Scenario {
+  const cut = Math.round((base.levers.targetMonthlySpend * 0.5) / 50) * 50;
+  return { ...base, levers: { ...base.levers, targetMonthlySpend: cut } };
+}
+
 const NEW_ROLE_INCOME_ID = "inc-new-role";
 
 function withNewRoleIncome(base: Scenario): Scenario {
-  // Remove any prior copy so the preset is idempotent, then add fresh.
   const others = base.levers.incomeEvents.filter((e) => e.id !== NEW_ROLE_INCOME_ID);
   const newRole: IncomeEvent = {
     id: NEW_ROLE_INCOME_ID,
     label: "New income",
     kind: "recurring",
-    // Comfortably above the post-sublet burn, so the scenario becomes
-    // cash-flow-positive and reads as "beyond horizon" rather than just
-    // a delayed cash-zero.
+    // Comfortably above the post-sublet burn → cash-flow-positive.
     amount: 8_500,
-    // "From month 6" — month 1 is the timeline start month.
-    startDate: addMonths(base.timeline.start, 5),
+    startDate: addMonths(base.timeline.start, 5), // "from month 6"
   };
-  return {
-    ...base,
-    levers: { ...base.levers, incomeEvents: [...others, newRole] },
-  };
+  return { ...base, levers: { ...base.levers, incomeEvents: [...others, newRole] } };
 }
+
+/**
+ * Find the highest non-housing spend at which the scenario lasts through the
+ * end of the calendar year it would otherwise run out in. If the baseline is
+ * already sustainable, returns it unchanged.
+ */
+function surviveToYearEnd(base: Scenario): Scenario {
+  const baseRun = simulate(base).runway;
+  if (baseRun.survivesHorizon || !baseRun.cashZeroDate) return base;
+
+  const targetYear = parseISO(baseRun.cashZeroDate).y;
+  const target = `${targetYear}-12-31`;
+
+  const reaches = (spend: number) => {
+    const r = simulate({ ...base, levers: { ...base.levers, targetMonthlySpend: spend } }).runway;
+    return r.survivesHorizon || (!!r.cashZeroDate && compareISO(r.cashZeroDate, target) >= 0);
+  };
+
+  // Binary-search the max spend that still reaches the target.
+  let lo = 0;
+  let hi = base.levers.targetMonthlySpend;
+  if (!reaches(lo)) return { ...base, levers: { ...base.levers, targetMonthlySpend: 0 } };
+  for (let i = 0; i < 24; i++) {
+    const mid = (lo + hi) / 2;
+    if (reaches(mid)) lo = mid;
+    else hi = mid;
+  }
+  const spend = Math.floor(lo / 50) * 50;
+  return { ...base, levers: { ...base.levers, targetMonthlySpend: spend } };
+}
+
+// --- registry ----------------------------------------------------------------
 
 export const PRESETS: Preset[] = [
   {
@@ -50,6 +81,30 @@ export const PRESETS: Preset[] = [
     name: "Baseline",
     description: "The starting scenario, unchanged — cash draws down to zero.",
     apply: (base) => base,
+  },
+  {
+    id: "zero-housing",
+    name: "Zero housing cost",
+    description: "Housing drops to $0 (e.g. move in with family).",
+    apply: zeroHousing,
+  },
+  {
+    id: "dramatic-reduction",
+    name: "Dramatic lifestyle cut",
+    description: "Halve non-housing spending.",
+    apply: dramaticReduction,
+  },
+  {
+    id: "both-combined",
+    name: "Both combined",
+    description: "Zero housing AND halved spending.",
+    apply: (base) => dramaticReduction(zeroHousing(base)),
+  },
+  {
+    id: "survive-year-end",
+    name: "Survive to year-end",
+    description: "Trim spending to last through the end of the year you'd run out in.",
+    apply: surviveToYearEnd,
   },
   {
     id: "landed-new-role",
