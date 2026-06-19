@@ -302,6 +302,111 @@ describe("one-time dated events", () => {
   });
 });
 
+describe("major asset sale lever (Chris P2)", () => {
+  function saleScenario(over: Partial<Scenario["levers"]["assetSale"]> = {}) {
+    return scn({
+      start: "2026-01-01",
+      end: "2026-12-31",
+      accounts: [acct({ type: "checking", balance: 100_000, priority: 1 })],
+      levers: {
+        assetSale: {
+          enabled: true,
+          label: "Condo",
+          saleDate: "2026-04-15",
+          salePrice: 500_000,
+          closingCostPct: 0.06,
+          loanPayoff: 300_000,
+          costBasis: 350_000,
+          capGainsRate: 0.15,
+          taxTiming: "next_april",
+          associatedMonthlyIncomeToStop: 2_000,
+          associatedMonthlyCostToStop: 1_500,
+          ...over,
+        },
+      },
+    });
+  }
+
+  it("books net proceeds, stops associated income/cost, schedules cap-gains tax", () => {
+    const res = simulate(saleScenario());
+
+    // net = 500k − 6% closing (30k) − 300k loan = 170k, in the sale month.
+    const april = res.months.find((m) => m.monthKey === "2026-04")!;
+    expect(april.accounts[0].inflows.assetSale).toBeCloseTo(170_000, 6);
+
+    // associated income + carrying cost only accrue before the sale (Jan–Mar).
+    expect(sumCategory(res, "assetCarry")).toBeCloseTo(1_500 * 3, 6); // outflow
+    const assetIncome = res.months
+      .filter((m) => m.monthKey < "2026-04")
+      .reduce((s, m) => s + (m.accounts[0].inflows.income ?? 0), 0);
+    expect(assetIncome).toBeCloseTo(2_000 * 3, 6);
+    // none after the sale
+    const afterCarry = res.months
+      .filter((m) => m.monthKey > "2026-04")
+      .reduce((s, m) => s + (m.accounts[0].outflows.assetCarry ?? 0), 0);
+    expect(afterCarry).toBe(0);
+
+    // capital gains: (500k − 350k) × 15% = 22.5k, due the following April 15.
+    expect(res.scheduledTaxes).toHaveLength(1);
+    expect(res.scheduledTaxes[0].tax).toBeCloseTo(22_500, 6);
+    expect(res.scheduledTaxes[0].dueDate).toBe("2027-04-15");
+
+    // ledger still reconciles with the sale in play
+    for (const m of res.months) {
+      expect(Math.abs(m.totals.opening + m.totals.inflow - m.totals.outflow - m.totals.closing)).toBeLessThan(1e-4);
+    }
+  });
+
+  it("pays off a tied credit line from the proceeds", () => {
+    const res = simulate(
+      scn({
+        start: "2026-01-01",
+        end: "2026-12-31",
+        accounts: [
+          acct({ type: "checking", balance: 100_000, priority: 1 }),
+          acct({
+            type: "credit_line",
+            balance: 50_000,
+            priority: 2,
+            id: "heloc",
+            manualDraw: { date: "2026-02-15", amount: 10_000 },
+          }),
+        ],
+        levers: {
+          assetSale: {
+            enabled: true,
+            label: "House",
+            saleDate: "2026-04-15",
+            salePrice: 100_000,
+            closingCostPct: 0,
+            loanPayoff: 0,
+            costBasis: 100_000, // no gain → no cap-gains tax
+            capGainsRate: 0.15,
+            taxTiming: "next_april",
+            tiedCreditAccountId: "heloc",
+          },
+        },
+      }),
+    );
+
+    const heloc = res.accountTimelines.find((t) => t.accountId === "heloc")!;
+    // Drawn 10k in Feb (remaining credit 40k); paid off at the April sale (50k).
+    expect(heloc.balances[1]).toBe(40_000);
+    expect(heloc.balances[3]).toBe(50_000);
+    // net proceeds = 100k − 10k tied payoff = 90k
+    const april = res.months.find((m) => m.monthKey === "2026-04")!;
+    const op = april.accounts.find((a) => a.accountId !== "heloc")!;
+    expect(op.inflows.assetSale).toBeCloseTo(90_000, 6);
+    expect(res.scheduledTaxes).toHaveLength(0); // no gain
+  });
+
+  it("ignores the lever entirely when disabled", () => {
+    const res = simulate(saleScenario({ enabled: false }));
+    expect(sumCategory(res, "assetSale")).toBe(0);
+    expect(res.scheduledTaxes).toHaveLength(0);
+  });
+});
+
 describe("runway math", () => {
   it("computes a finite cash-zero date for a depleting scenario", () => {
     const res = simulate(
@@ -367,7 +472,7 @@ describe("sample scenario smoke", () => {
   };
 
   it("produces the full horizon for all accounts", () => {
-    expect(horizon).toBe(12); // 2026-07 .. 2027-06
+    expect(horizon).toBe(60); // 2026-07 .. 2031-06 (5-year horizon)
     expect(res.projection).toHaveLength(horizon);
     expect(res.accountTimelines).toHaveLength(7);
     for (const t of res.accountTimelines) expect(t.balances).toHaveLength(horizon);

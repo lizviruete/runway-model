@@ -186,6 +186,7 @@ export type LedgerCategory =
   | "living" // target monthly spend
   | "oneTime" // dated one-time outflow
   | "assetSale" // net proceeds from a major asset sale
+  | "assetCarry" // recurring carrying cost of a held asset (pre-sale)
   | "tax" // scheduled tax/penalty payments coming due
   | "creditInterest" // interest paid on drawn credit
   | "interestEarned" // yield on HYSA etc.

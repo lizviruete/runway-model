@@ -11,6 +11,7 @@ const CATEGORY_LABELS: Record<LedgerCategory, string> = {
   living: "Living",
   oneTime: "One-time",
   assetSale: "Asset sale",
+  assetCarry: "Carrying cost",
   tax: "Tax/penalty",
   creditInterest: "Credit interest",
   interestEarned: "Interest",

@@ -88,21 +88,25 @@ are user-editable, and "Other" is a no-implications escape hatch.
 
 ## Outcome & status
 
-**Phase B complete:** the engine is wired to an interactive dashboard — hero
-metrics (runway, cash-zero date, Δ vs. baseline), a hand-rolled SVG
-cash-projection chart (display clamped at zero, with a baseline overlay), a
-stacked account-depletion visualization, an editable account list (add / edit /
-drag-reorder / delete, with the type dropdown and editable tax/cost
-implications), lever controls (housing, target spend, income streams, one-time
-events), and the audit ledger (monthly rollup, expandable per-account, with a
-transaction-level toggle). Loads the fictional sample by default.
+**Phase C complete:** the major-asset-sale lever (net proceeds, closing costs,
+loan + tied-credit-line payoff, capital-gains tax scheduled to the following
+April, and stopping any associated income / carrying cost at the sale), computed
+ongoing costs surfaced per account, and the full account-type → implications
+behavior including the no-implications "Other" escape hatch. The chart x-axis
+auto-scales to the meaningful window (≈ cash-zero + margin, or the longer of
+current vs. baseline), so the ~9-month baseline reads cleanly against a 5-year
+horizon while a runway-extending lever stretches the axis.
 
-**Phase A:** the pure simulation engine + Vitest suite covering the depletion
-waterfall, future-dated tax events, credit interest, ledger reconciliation, and
-the spend self-consistency that fixes V1's broken trim math (41 tests total
-across the engine and UI helpers). **Phase 0:** scaffold deployed to Vercel,
-iframe-embeddable by lizbuilds.ai. Still ahead (Phases C–D): the major-asset-sale
-lever, built-in presets, save + shareable-URL state, and final polish.
+**Phase B:** the engine wired to an interactive dashboard — hero metrics, a
+hand-rolled SVG cash-projection chart (display clamped at zero, baseline
+overlay), a stacked account-depletion visualization, an editable account list
+(add / edit / drag-reorder / delete), lever controls, and the audit ledger
+(monthly rollup, expandable per-account, transaction-level toggle). **Phase A:**
+the pure simulation engine + Vitest suite covering the depletion waterfall,
+tax events, credit interest, ledger reconciliation, asset sale, and the spend
+self-consistency that fixes V1's broken trim math (47 tests). **Phase 0:**
+scaffold deployed to Vercel, iframe-embeddable by lizbuilds.ai. Still ahead
+(Phase D): built-in presets, save + shareable-URL state, and final polish.
 
 Before/after vs. V1: monolithic cash → per-account audit ledger; hardcoded
 personal numbers → a generic, type-driven account model.

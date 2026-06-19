@@ -1,6 +1,13 @@
 "use client";
 
-import type { IncomeEvent, Levers as LeversType, OneTimeEvent, Scenario } from "@/lib/engine/types";
+import { isCreditType } from "@/lib/engine/defaults";
+import type {
+  AssetSaleLever,
+  IncomeEvent,
+  Levers as LeversType,
+  OneTimeEvent,
+  Scenario,
+} from "@/lib/engine/types";
 import { formatCurrency } from "@/lib/format";
 import { newEventId, newIncomeId } from "@/lib/scenario";
 import { NumberField, SectionTitle } from "./ui";
@@ -85,7 +92,148 @@ export function Levers({ scenario, onChange }: Props) {
 
       {/* One-time events */}
       <OneTimeEvents scenario={scenario} onChange={onChange} />
+
+      {/* Major asset sale */}
+      <AssetSale scenario={scenario} onChange={onChange} />
     </section>
+  );
+}
+
+function defaultAssetSale(scenario: Scenario): AssetSaleLever {
+  return {
+    enabled: true,
+    label: "Property sale",
+    saleDate: scenario.timeline.start,
+    salePrice: 500_000,
+    closingCostPct: 0.06,
+    loanPayoff: 300_000,
+    costBasis: 350_000,
+    capGainsRate: 0.15,
+    taxTiming: "next_april",
+  };
+}
+
+function AssetSale({ scenario, onChange }: Props) {
+  const L = scenario.levers;
+  const sale = L.assetSale;
+  const setSale = (next: AssetSaleLever | undefined) =>
+    onChange({ ...scenario, levers: { ...L, assetSale: next } });
+  const patch = (p: Partial<AssetSaleLever>) => {
+    if (!sale) return;
+    setSale({ ...sale, ...p });
+  };
+
+  const creditAccounts = scenario.accounts.filter((a) => isCreditType(a.type));
+  const netPreview = sale
+    ? sale.salePrice - sale.salePrice * sale.closingCostPct - sale.loanPayoff
+    : 0;
+  const gainPreview = sale ? Math.max(0, sale.salePrice - sale.costBasis) * sale.capGainsRate : 0;
+
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-xs font-medium text-zinc-600">Major asset sale</span>
+        <label className="flex items-center gap-1.5 text-xs text-zinc-500">
+          <input
+            type="checkbox"
+            checked={!!sale?.enabled}
+            onChange={(e) =>
+              e.target.checked
+                ? setSale(defaultAssetSale(scenario))
+                : sale
+                  ? patch({ enabled: false })
+                  : undefined
+            }
+          />
+          Model a sale (e.g. property)
+        </label>
+      </div>
+
+      {sale?.enabled ? (
+        <div className="space-y-2 rounded-lg border border-zinc-200 p-2.5">
+          <input
+            value={sale.label}
+            onChange={(e) => patch({ label: e.target.value })}
+            className="w-full rounded border border-transparent px-1.5 py-1 text-sm font-medium hover:border-zinc-200 focus:border-zinc-400 focus:outline-none"
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-zinc-600">Sale date</span>
+              <input
+                type="date"
+                value={sale.saleDate}
+                onChange={(e) => patch({ saleDate: e.target.value })}
+                className="w-full rounded-lg border border-zinc-300 px-2 py-1.5 text-sm outline-none focus:border-zinc-500"
+              />
+            </label>
+            <NumberField label="Sale price" value={sale.salePrice} step={5000} onChange={(v) => patch({ salePrice: v })} />
+            <PctField label="Closing costs" value={sale.closingCostPct} onChange={(v) => patch({ closingCostPct: v })} />
+            <NumberField label="Loan / lien payoff" value={sale.loanPayoff} step={5000} onChange={(v) => patch({ loanPayoff: v })} />
+            <NumberField label="Cost basis" value={sale.costBasis} step={5000} onChange={(v) => patch({ costBasis: v })} />
+            <PctField label="Cap-gains rate" value={sale.capGainsRate} onChange={(v) => patch({ capGainsRate: v })} />
+            <NumberField
+              label="Monthly income stops"
+              value={sale.associatedMonthlyIncomeToStop ?? 0}
+              onChange={(v) => patch({ associatedMonthlyIncomeToStop: v || undefined })}
+            />
+            <NumberField
+              label="Monthly carrying cost"
+              value={sale.associatedMonthlyCostToStop ?? 0}
+              onChange={(v) => patch({ associatedMonthlyCostToStop: v || undefined })}
+            />
+          </div>
+          {creditAccounts.length > 0 ? (
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-zinc-600">Tied credit line to pay off</span>
+              <select
+                value={sale.tiedCreditAccountId ?? ""}
+                onChange={(e) => patch({ tiedCreditAccountId: e.target.value || undefined })}
+                className="w-full rounded-lg border border-zinc-300 px-2 py-1.5 text-sm outline-none focus:border-zinc-500"
+              >
+                <option value="">None</option>
+                {creditAccounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name || "Credit line"}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <p className="text-[11px] text-zinc-500">
+            Net proceeds ≈ <span className="font-medium text-zinc-700">{formatCurrency(netPreview)}</span>
+            {sale.tiedCreditAccountId ? " (less any drawn balance on the tied line)" : ""} · cap-gains tax ≈{" "}
+            <span className="font-medium text-zinc-700">{formatCurrency(gainPreview)}</span> due the following April.
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function PctField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs font-medium text-zinc-600">{label}</span>
+      <div className="flex items-center rounded-lg border border-zinc-300 focus-within:border-zinc-500">
+        <input
+          type="number"
+          value={Math.round(value * 1000) / 10}
+          step={0.5}
+          min={0}
+          onChange={(e) => onChange((Number(e.target.value) || 0) / 100)}
+          className="w-full bg-transparent px-2 py-1.5 text-right text-sm tabular-nums outline-none"
+        />
+        <span className="pr-2 text-sm text-zinc-400">%</span>
+      </div>
+    </label>
   );
 }
 

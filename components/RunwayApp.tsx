@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { visibleMonthCount } from "@/lib/chartWindow";
 import { simulate } from "@/lib/engine/simulate";
 import type { Scenario } from "@/lib/engine/types";
 import { createSampleScenario } from "@/lib/sample";
@@ -23,6 +24,18 @@ export function RunwayApp() {
   // Only overlay the baseline once the user has changed something.
   const isEdited = scenario !== baselineScenario && JSON.stringify(scenario) !== JSON.stringify(baselineScenario);
 
+  // Auto-scale the chart x-axis to the meaningful window.
+  const windowMonths = useMemo(
+    () => visibleMonthCount(result, baseline, isEdited),
+    [result, baseline, isEdited],
+  );
+  const currentProjection = result.projection.slice(0, windowMonths);
+  const baselineProjection = baseline.projection.slice(0, windowMonths);
+  const windowTimelines = result.accountTimelines.map((t) => ({
+    ...t,
+    balances: t.balances.slice(0, windowMonths),
+  }));
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
       <header className="mb-6">
@@ -43,8 +56,8 @@ export function RunwayApp() {
               Cash projection
             </SectionTitle>
             <CashProjectionChart
-              current={result.projection}
-              baseline={baseline.projection}
+              current={currentProjection}
+              baseline={baselineProjection}
               showBaseline={isEdited}
               cashZeroDate={result.runway.cashZeroDate}
               startDate={scenario.timeline.start}
@@ -53,7 +66,7 @@ export function RunwayApp() {
 
           <Card className="p-5">
             <SectionTitle hint="Which account drains, in what order">Account depletion</SectionTitle>
-            <DepletionChart timelines={result.accountTimelines} projection={result.projection} />
+            <DepletionChart timelines={windowTimelines} projection={currentProjection} />
           </Card>
 
           <Card className="p-5">

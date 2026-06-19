@@ -34,12 +34,15 @@ export function createSampleScenario(): Scenario {
     id: "sample",
     name: "Sample User — recent transition",
     createdDate: "2026-06-18",
-    // Horizon runs a few months past cash-zero so the baseline tells a finite,
-    // visible ~9-month depletion story. The "new income" recovery lives in a
-    // preset, not here. Modest, realistic balances make the waterfall cascade
-    // checking → savings → HYSA → brokerage → Roth → pre-tax IRA before zero,
-    // so both the brokerage cap-gains and pre-tax tax+penalty events show up.
-    timeline: { start: "2026-07-01", end: "2027-06-30" },
+    // 60-month (5-year) horizon. The baseline still craters at ~9 months, but
+    // the long horizon means single-lever improvements resolve to concrete
+    // cash-zero dates, and "beyond horizon" only shows for genuinely
+    // cash-flow-positive scenarios (e.g. the "Landed a new role" preset). The
+    // chart x-axis auto-scales to the meaningful window, so the baseline still
+    // reads as a clean ~12-month view. Modest balances make the waterfall
+    // cascade checking → savings → HYSA → brokerage → Roth → pre-tax IRA before
+    // zero, so both the brokerage cap-gains and pre-tax tax+penalty events show.
+    timeline: { start: "2026-07-01", end: "2031-06-30" },
     accounts: [
       account("acc-checking", "Everyday Checking", "checking", 3_000, 1),
       account("acc-savings", "Savings", "savings", 4_000, 2),

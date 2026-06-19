@@ -153,10 +153,11 @@ export function AccountList({ scenario, onChange }: Props) {
                 </button>
               </div>
 
-              {/* helper line */}
+              {/* helper line + computed ongoing cost */}
               <p className="mt-1 pl-8 text-[11px] text-zinc-400">
                 {credit ? "Available credit · " : ""}
                 {meta.helper}
+                <OngoingCostNote account={account} />
               </p>
 
               {isOpen ? <Implications scenario={scenario} account={account} onChange={onChange} /> : null}
@@ -173,6 +174,29 @@ export function AccountList({ scenario, onChange }: Props) {
       </button>
     </section>
   );
+}
+
+/** Computed monthly carrying cost / yield, surfaced per account. */
+function OngoingCostNote({ account }: { account: Account }) {
+  const { kind, annualRate } = account.ongoingCost;
+  if (annualRate <= 0) return null;
+  if (kind === "interest_earned") {
+    const monthly = (account.balance * annualRate) / 12;
+    return (
+      <span className="text-emerald-600">
+        {" "}· earns ≈ {formatCurrency(monthly)}/mo at this balance
+      </span>
+    );
+  }
+  if (kind === "credit_interest") {
+    const per10k = (10_000 * annualRate) / 12;
+    return (
+      <span className="text-amber-600">
+        {" "}· ≈ {formatCurrency(per10k)}/mo interest per $10k drawn
+      </span>
+    );
+  }
+  return null;
 }
 
 function Pct({

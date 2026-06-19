@@ -241,6 +241,67 @@ export function simulate(scenario: Scenario): SimulationResult {
       tx(ev.date, operating, "oneTime", ev.amount, ev.label);
     }
 
+    // ---- 4b. major asset sale lever --------------------------------------
+    const sale = levers.assetSale;
+    if (sale?.enabled) {
+      const saleMonthStart = firstOfMonth(sale.saleDate);
+      const beforeSale = compareISO(monthStart, saleMonthStart) < 0;
+      const isSaleMonth = sameMonth(sale.saleDate, monthStart);
+
+      // Associated income (e.g. rent) accrues only until the asset is sold.
+      if (beforeSale && sale.associatedMonthlyIncomeToStop) {
+        const amt = sale.associatedMonthlyIncomeToStop;
+        inflowTotal += amt;
+        operating.balance += amt;
+        add(acc.get(operating.account.id)!.inflows, "income", amt);
+        tx(monthStart, operating, "income", amt, `${sale.label} income`);
+      }
+
+      if (isSaleMonth) {
+        const tied = sale.tiedCreditAccountId
+          ? states.find((s) => s.account.id === sale.tiedCreditAccountId && s.isCredit)
+          : undefined;
+        const tiedPayoff = tied ? tied.drawn : 0;
+        const closingCosts = sale.salePrice * sale.closingCostPct;
+        const net = sale.salePrice - closingCosts - sale.loanPayoff - tiedPayoff;
+
+        // Pay off the tied credit line at close.
+        if (tied && tiedPayoff > 0) {
+          tied.drawn = 0;
+          add(acc.get(tied.account.id)!.inflows, "assetSale", tiedPayoff);
+          tx(sale.saleDate, tied, "assetSale", tiedPayoff, `${sale.label} — pay off ${tied.account.name}`);
+        }
+
+        // Net proceeds land in the operating account (an outflow if underwater).
+        operating.balance += net;
+        if (net >= 0) {
+          inflowTotal += net;
+          add(acc.get(operating.account.id)!.inflows, "assetSale", net);
+        } else {
+          outflowTotal += -net;
+          add(acc.get(operating.account.id)!.outflows, "assetSale", -net);
+        }
+        tx(sale.saleDate, operating, "assetSale", net, `${sale.label} — net proceeds`);
+
+        // Capital-gains tax on the realized gain, scheduled per its timing.
+        const gain = Math.max(0, sale.salePrice - sale.costBasis);
+        const capGainsTax = gain * sale.capGainsRate;
+        if (capGainsTax > 0) {
+          scheduledTaxes.push({
+            sourceAccountId: `assetsale:${sale.label}`,
+            sourceAccountName: sale.label,
+            withdrawalDate: sale.saleDate,
+            dueDate:
+              sale.taxTiming === "immediate"
+                ? firstOfMonth(sale.saleDate)
+                : followingApril15(sale.saleDate),
+            tax: capGainsTax,
+            penalty: 0,
+          });
+        }
+      }
+    }
+
     // ---- 5. external outflows --------------------------------------------
     const opOut = acc.get(operating.account.id)!.outflows;
 
@@ -260,6 +321,18 @@ export function simulate(scenario: Scenario): SimulationResult {
       outflowTotal += living;
       add(opOut, "living", living);
       tx(monthStart, operating, "living", -living, "Living spend");
+    }
+
+    // 5b2. asset carrying cost (e.g. property tax / HOA) — stops at sale
+    if (sale?.enabled && sale.associatedMonthlyCostToStop) {
+      const beforeSale = compareISO(monthStart, firstOfMonth(sale.saleDate)) < 0;
+      if (beforeSale) {
+        const cost = sale.associatedMonthlyCostToStop;
+        operating.balance -= cost;
+        outflowTotal += cost;
+        add(opOut, "assetCarry", cost);
+        tx(monthStart, operating, "assetCarry", -cost, `${sale.label} carrying cost`);
+      }
     }
 
     // 5c. dated one-time outflows

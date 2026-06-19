@@ -31,7 +31,10 @@ function withNewRoleIncome(base: Scenario): Scenario {
     id: NEW_ROLE_INCOME_ID,
     label: "New income",
     kind: "recurring",
-    amount: 7_000,
+    // Comfortably above the post-sublet burn, so the scenario becomes
+    // cash-flow-positive and reads as "beyond horizon" rather than just
+    // a delayed cash-zero.
+    amount: 8_500,
     // "From month 6" — month 1 is the timeline start month.
     startDate: addMonths(base.timeline.start, 5),
   };
@@ -51,7 +54,7 @@ export const PRESETS: Preset[] = [
   {
     id: "landed-new-role",
     name: "Landed a new role",
-    description: "New income of $7,000/mo starting month 6 — extends the runway.",
+    description: "New income of $8,500/mo starting month 6 — cash-flow-positive.",
     apply: withNewRoleIncome,
   },
 ];
