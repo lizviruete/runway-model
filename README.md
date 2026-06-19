@@ -45,18 +45,55 @@ product that ships with a fictional sample scenario, so it reads as a real tool
   sharing) and localStorage (saved scenarios + last session). A shared link
   fully reproduces a scenario on load.
 
-_System diagram: account model + simulation flow — added in Phase A._
+**Simulation flow** (`lib/engine/simulate.ts`) — a deterministic month-by-month walk:
+
+```
+Scenario  ─►  for each month of the timeline:
+(accounts,        1. accrue HYSA interest (into the account)
+ levers,          2. accrue credit interest on prior-month drawn balances
+ timeline)        3. apply manual draws
+                  4. credit income + one-off inflows  ─┐
+                  5. debit housing + living + one-off  ├─ all post to the
+                     outflows + taxes due + interest   ┘  "operating" account
+                  6. if operating < 0 → cascade the shortfall down the
+                     depletion waterfall (assets, then credit lines),
+                     scheduling tax/penalty as future-dated events
+                  7. if still short → cash-zero (day-precise via proration)
+                  8. snapshot per-account ledger + balances
+          ─►  SimulationResult { runway, months[], projection[],
+                                  accountTimelines[], transactions[],
+                                  scheduledTaxes[] }
+```
+
+Account types (`checking · savings · hysa · brokerage · roth · pretax ·
+credit_line · other`) drive default tax treatment and ongoing cost; all values
+are user-editable, and "Other" is a no-implications escape hatch.
 
 ## Decisions & tradeoffs
 
-_(Filled in as decisions land. Candidates: generic accounts vs. hardcoded;
-URL + localStorage state vs. a backend; pure-engine separation for testability.)_
+- **Generic account model over hardcoded numbers.** V1 baked in my personal
+  finances. V2 models any user's accounts with type-driven (editable) tax and
+  cost behavior. Costs more upfront design; buys privacy, a real-product feel,
+  and the eventual advisor/B2B story.
+- **Pure engine, separated from the UI.** The simulation has zero React/DOM
+  dependencies, so it is unit-tested directly (24 tests, ~99% line coverage)
+  and reusable. The tests encode the exact truths the advisor review demanded —
+  e.g. a $X/mo spend change moves cumulative outflow by *exactly* $X/mo.
+- **Monthly time-step, not V1's daily loop.** Makes the audit ledger and the
+  self-consistency guarantees exact; cash-zero still gets day precision via
+  intra-month proration. Tradeoff: sub-monthly cash-flow timing is approximated.
+- **Export-ready ledger shape.** Every month is stored as per-account rows
+  (opening, categorized inflows/outflows, closing) plus a dated transaction
+  list, so a later CSV/JSON export is a small add, not a refactor.
 
 ## Outcome & status
 
-**Phase 0 complete:** Next.js + TypeScript + Tailwind scaffold, deployed to
-Vercel, iframe-embeddable by lizbuilds.ai. Before/after vs. V1 (monolithic cash
-→ per-account audit ledger; hardcoded → generic) fills in through Phases A–D.
+**Phase A complete:** the pure simulation engine + a Vitest suite (24 tests)
+covering the depletion waterfall, future-dated tax events, credit interest,
+ledger reconciliation, and the spend self-consistency that fixes V1's broken
+trim math. **Phase 0:** scaffold deployed to Vercel, iframe-embeddable by
+lizbuilds.ai. Before/after vs. V1 (monolithic cash → per-account audit ledger;
+hardcoded → generic) fills in through Phases B–D.
 
 ## Screenshots
 
