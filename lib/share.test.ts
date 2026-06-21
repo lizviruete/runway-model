@@ -27,7 +27,7 @@ describe("shareable URL codec", () => {
 
   it("reads the scenario back out of a query string", () => {
     const s = createSampleScenario();
-    const url = shareableUrl(s, "https://runway.lizbuilds.ai/");
+    const url = shareableUrl(s, "https://upward.lizbuilds.ai/");
     const search = new URL(url).search;
     expect(scenarioFromSearch(search)).toEqual(s);
   });
@@ -39,7 +39,7 @@ describe("shareable URL codec", () => {
       name: "My situation",
       levers: { ...createSampleScenario().levers, targetMonthlySpend: 2_500 },
     };
-    const url = shareableUrl(edited, "https://runway.lizbuilds.ai/");
+    const url = shareableUrl(edited, "https://upward.lizbuilds.ai/");
     const reopened = scenarioFromSearch(new URL(url).search);
     expect(reopened).toEqual(edited);
     expect(reopened?.levers.targetMonthlySpend).toBe(2_500);

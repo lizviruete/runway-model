@@ -7,10 +7,9 @@ someone between incomes (layoff, sabbatical, going full-time on a project):
 **how long does your cash last, and how does that change if you pull any single
 lever?**
 
-> **Live demo:** [runway.lizbuilds.ai](https://runway.lizbuilds.ai) · _(Phase 0 — pipeline live; the modeling app lands over Phases A–D.)_
+> **Live demo:** [upward.lizbuilds.ai](https://upward.lizbuilds.ai) · _(the old `runway.lizbuilds.ai` 308-redirects here.)_
 
-This README is organized to the lizbuilds.ai "Builds" template and is filled in
-as the build progresses.
+This README is organized to the lizbuilds.ai "Builds" template.
 
 ---
 
@@ -78,9 +77,10 @@ are user-editable, and "Other" is a no-implications escape hatch.
   cost behavior. Costs more upfront design; buys privacy, a real-product feel,
   and the eventual advisor/B2B story.
 - **Pure engine, separated from the UI.** The simulation has zero React/DOM
-  dependencies, so it is unit-tested directly (24 tests, ~99% line coverage)
-  and reusable. The tests encode the exact truths the advisor review demanded —
-  e.g. a $X/mo spend change moves cumulative outflow by *exactly* $X/mo.
+  dependencies, so it is unit-tested directly — the engine suite anchors the
+  project's 53 tests — and reusable. The tests encode the exact truths the
+  advisor review demanded — e.g. a $X/mo spend change moves cumulative outflow
+  by *exactly* $X/mo.
 - **Monthly time-step, not V1's daily loop.** Makes the audit ledger and the
   self-consistency guarantees exact; cash-zero still gets day precision via
   intra-month proration. Tradeoff: sub-monthly cash-flow timing is approximated.
@@ -120,7 +120,8 @@ personal numbers → a generic, type-driven account model.
 
 ## Live demo
 
-[runway.lizbuilds.ai](https://runway.lizbuilds.ai)
+[upward.lizbuilds.ai](https://upward.lizbuilds.ai) — the old `runway.lizbuilds.ai`
+308-redirects here.
 
 ---
 

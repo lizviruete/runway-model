@@ -1,5 +1,5 @@
 // A small harness to verify the app renders inside an iframe (the way
-// lizbuilds.ai embeds it). Served from runway.lizbuilds.ai, this frames the
+// lizbuilds.ai embeds it). Served from upward.lizbuilds.ai, this frames the
 // production app and confirms the `frame-ancestors` CSP permits embedding
 // (rather than blocking it the way `X-Frame-Options: DENY` would).
 
@@ -18,7 +18,7 @@ export default function EmbedTest() {
         </p>
         <div className="overflow-hidden rounded-xl border border-zinc-300 bg-white shadow-sm">
           <iframe
-            src="https://runway.lizbuilds.ai/"
+            src="https://upward.lizbuilds.ai/"
             title="Upward"
             className="h-[80vh] w-full"
           />
@@ -27,7 +27,7 @@ export default function EmbedTest() {
           Embed snippet for the lizbuilds.ai detail page:
         </p>
         <pre className="mt-1 overflow-x-auto rounded-lg bg-zinc-900 p-3 text-xs text-zinc-100">
-{`<iframe src="https://runway.lizbuilds.ai/"
+{`<iframe src="https://upward.lizbuilds.ai/"
         title="Upward"
         style="width:100%;height:80vh;border:0;border-radius:12px"
         loading="lazy"></iframe>`}
