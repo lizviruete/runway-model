@@ -37,8 +37,8 @@ export function TimeAnchor({ scenario, onChange, today }: Props) {
         ) : null}
       </div>
       <p className="max-w-md text-xs text-zinc-500 sm:text-right">
-        Anchor to a real moment — today, your layoff date, the start of parental leave, or
-        when severance lands. Balances are as of this date; everything runs forward from it.
+        Your starting point — the day your income changes. Anchor to a layoff, the start of
+        parental or family leave, a sabbatical, or going full-time on your own. Defaults to today.
       </p>
     </div>
   );

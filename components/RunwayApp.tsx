@@ -144,7 +144,7 @@ export function RunwayApp() {
   }));
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+    <div className="mx-auto max-w-[1560px] px-4 py-8 sm:px-6">
       <header className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Upward</h1>
         <p className="mt-1 text-sm font-medium text-zinc-700">
@@ -177,49 +177,55 @@ export function RunwayApp() {
         <HeroMetrics result={result} baseline={baseline} />
       </div>
 
-      {/* Merged runway chart — net-liquid line + baseline (Total), or stacked
-          account bands with the authoritative net-liquid line (By account). */}
-      <Card className="mt-6 p-5">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <SectionTitle hint={isEdited ? "Solid = current · dashed = baseline" : "Net liquid over time"}>
-            Runway
-          </SectionTitle>
-          <div className="flex shrink-0 overflow-hidden rounded-lg border border-zinc-200 text-xs">
-            {(["total", "byAccount"] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => setMode(m)}
-                className={`px-3 py-1 ${mode === m ? "bg-zinc-900 text-white" : "bg-white text-zinc-600 hover:bg-zinc-50"}`}
-              >
-                {m === "total" ? "Total" : "By account"}
-              </button>
-            ))}
-          </div>
+      {/* Controls left (clamped ~380–420px), outputs right (chart over ledger)
+          and grown to fill on wide screens. Below lg / in the narrow embed it
+          collapses to a single column ordered hero → chart → controls → ledger. */}
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(380px,420px)_minmax(0,1fr)] lg:items-start">
+        {/* Controls panel — Accounts then Levers, stacked */}
+        <div className="order-2 space-y-6 lg:order-none lg:row-span-2">
+          <Card className="p-5">
+            <AccountList scenario={scenario} onChange={update} />
+          </Card>
+          <Card className="p-5">
+            <Levers scenario={scenario} onChange={update} />
+          </Card>
         </div>
-        <RunwayChart
-          current={currentProjection}
-          baseline={baselineProjection}
-          showBaseline={isEdited}
-          timelines={windowTimelines}
-          cashZeroDate={result.runway.cashZeroDate}
-          startDate={scenario.timeline.start}
-          mode={mode}
-        />
-      </Card>
 
-      {/* Controls — side-by-side on wide screens, stacked on narrow/embed. */}
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card className="p-5">
-          <AccountList scenario={scenario} onChange={update} />
+        {/* Merged runway chart — net-liquid line + baseline (Total), or stacked
+            account bands with the authoritative net-liquid line (By account). */}
+        <Card className="order-1 p-5 lg:order-none">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <SectionTitle hint={isEdited ? "Solid = current · dashed = baseline" : "Net liquid over time"}>
+              Runway
+            </SectionTitle>
+            <div className="flex shrink-0 overflow-hidden rounded-lg border border-zinc-200 text-xs">
+              {(["total", "byAccount"] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setMode(m)}
+                  className={`px-3 py-1 ${mode === m ? "bg-zinc-900 text-white" : "bg-white text-zinc-600 hover:bg-zinc-50"}`}
+                >
+                  {m === "total" ? "Total" : "By account"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <RunwayChart
+            current={currentProjection}
+            baseline={baselineProjection}
+            showBaseline={isEdited}
+            timelines={windowTimelines}
+            cashZeroDate={result.runway.cashZeroDate}
+            startDate={scenario.timeline.start}
+            mode={mode}
+          />
         </Card>
-        <Card className="p-5">
-          <Levers scenario={scenario} onChange={update} />
+
+        {/* Ledger */}
+        <Card className="order-3 p-5 lg:order-none">
+          <LedgerView result={result} />
         </Card>
       </div>
-
-      <Card className="mt-6 p-5">
-        <LedgerView result={result} />
-      </Card>
 
       <footer className="mt-10 text-center text-xs text-zinc-400">
         Sample data is fictional. Not financial advice.

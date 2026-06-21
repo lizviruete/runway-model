@@ -2,8 +2,20 @@
 
 import { Fragment, useState } from "react";
 import type { LedgerCategory, SimulationResult } from "@/lib/engine/types";
+import { ledgerJSON, monthlyRowsCSV, transactionsCSV } from "@/lib/exporters";
 import { formatCurrency, formatDate, formatMonthYear } from "@/lib/format";
 import { SectionTitle } from "./ui";
+
+/** Trigger a client-side file download of `text`. */
+function download(filename: string, mime: string, text: string): void {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 const CATEGORY_LABELS: Record<LedgerCategory, string> = {
   income: "Income",
@@ -59,12 +71,35 @@ export function LedgerView({ result }: { result: SimulationResult }) {
           ))}
         </div>
       </div>
-      <p className="mb-3 text-xs text-zinc-500">
-        A forward projection from your as-of date — not a bank statement.{" "}
-        <span className="text-zinc-400">
-          Lines marked “≈” are modeled estimates (spend, yield, taxes); the rest are inputs you entered.
-        </span>
-      </p>
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1.5">
+        <p className="text-xs text-zinc-500">
+          A forward projection from your as-of date — not a bank statement.{" "}
+          <span className="text-zinc-400">
+            Lines marked “≈” are modeled estimates (spend, yield, taxes); the rest are inputs you entered.
+          </span>
+        </p>
+        <div className="flex shrink-0 items-center gap-1 text-xs">
+          <span className="text-zinc-400">Export</span>
+          <button
+            onClick={() => download("upward-ledger-monthly.csv", "text/csv", monthlyRowsCSV(result))}
+            className="rounded border border-zinc-200 px-2 py-0.5 text-zinc-600 hover:bg-zinc-50"
+          >
+            Monthly CSV
+          </button>
+          <button
+            onClick={() => download("upward-transactions.csv", "text/csv", transactionsCSV(result))}
+            className="rounded border border-zinc-200 px-2 py-0.5 text-zinc-600 hover:bg-zinc-50"
+          >
+            Transactions CSV
+          </button>
+          <button
+            onClick={() => download("upward-ledger.json", "application/json", ledgerJSON(result))}
+            className="rounded border border-zinc-200 px-2 py-0.5 text-zinc-600 hover:bg-zinc-50"
+          >
+            JSON
+          </button>
+        </div>
+      </div>
 
       {mode === "monthly" ? (
         <div className="max-h-[28rem] overflow-y-auto rounded-lg border border-zinc-200">
