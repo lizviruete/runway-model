@@ -51,8 +51,8 @@ export function Levers({ scenario, onChange }: Props) {
   };
 
   return (
-    <section className="flex h-full flex-col">
-      <div className="-mr-2 h-[34rem] flex-1 overflow-y-auto pr-2">
+    <section className="flex h-full min-h-0 flex-col">
+      <div className="-mr-2 min-h-0 flex-1 overflow-y-auto pr-2">
         {/* ===== Income ===== */}
         <GroupHeader title="Income" addLabel="+ Add income" onAdd={() => setModal({ noun: "income", editing: null })} />
 

@@ -205,16 +205,18 @@ export function RunwayApp() {
           (right), which grows to fill the remaining width AND stretches to the
           height of the Levers column. Below lg / in the narrow embed it
           collapses to a single column, chart first. */}
-      <div className="mt-6 grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[minmax(360px,440px)_minmax(0,1fr)]">
+      {/* Both cards share ONE fixed height (no stretch/match logic) so the row
+          stays balanced and each panel scrolls internally instead of growing. */}
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(360px,440px)_minmax(0,1fr)]">
         {/* Levers — left */}
-        <Card className="order-2 p-5 lg:order-none">
+        <Card className="order-2 flex h-[580px] flex-col p-5 lg:order-none">
           <Levers scenario={scenario} onChange={update} />
         </Card>
 
         {/* Merged runway chart — right; fills its cell. Net-liquid line +
             baseline (Total), or stacked account bands + the authoritative
             net-liquid line (By account). */}
-        <Card className="order-1 flex flex-col p-5 lg:order-none">
+        <Card className="order-1 flex h-[580px] flex-col p-5 lg:order-none">
           <div className="mb-1 flex items-center justify-between gap-3">
             <SectionTitle hint={activeScenarioName}>Runway</SectionTitle>
             <div className="flex shrink-0 overflow-hidden rounded-lg border border-zinc-200 text-xs">

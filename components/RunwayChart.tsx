@@ -104,7 +104,7 @@ export function RunwayChart({
   const byAccount = mode === "byAccount";
 
   return (
-    <div className="flex min-h-[26rem] flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <div ref={wrapRef} className="min-h-0 flex-1 overflow-hidden">
         <svg
           width={W}
