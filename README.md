@@ -1,4 +1,6 @@
-# Runway Model
+# Upward
+
+**See where you stand. Build your runway. Steer it upward.**
 
 A transition-stage financial runway calculator. It answers one question for
 someone between incomes (layoff, sabbatical, going full-time on a project):
@@ -18,9 +20,9 @@ People in an income transition face a short-term, post-transition cash-flow
 crunch: severance is running out, unemployment hasn't started, and several
 accounts with different tax and access rules have to be drawn down in some
 order. Long-term planning tools (Right Capital, eMoney, MoneyGuide Pro) and
-general budgeting apps (Monarch, YNAB) don't model this window. Runway Model
-fills that gap — it shows how long the money lasts and how each lever changes
-the answer.
+general budgeting apps (Monarch, YNAB) don't model this window. Upward fills
+that gap — it shows how long the money lasts and how each lever changes the
+answer.
 
 ## Role / context
 
@@ -114,7 +116,7 @@ personal numbers → a generic, type-driven account model.
 
 ## Screenshots
 
-![Runway Model dashboard — hero metrics, cash-projection chart, account-depletion visualization, accounts, and levers](docs/screenshots/dashboard.png)
+![Upward dashboard — hero metrics, cash-projection chart, account-depletion visualization, accounts, and levers](docs/screenshots/dashboard.png)
 
 ## Live demo
 

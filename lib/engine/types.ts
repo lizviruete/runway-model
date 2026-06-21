@@ -1,5 +1,5 @@
 // =============================================================================
-// Runway Model — engine types
+// Upward — engine types
 //
 // The engine is a pure, UI-free module: a Scenario goes in, a SimulationResult
 // comes out, with zero React/DOM dependencies. These types are the contract.

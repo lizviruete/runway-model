@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Runway Model — how long does your cash last?",
+  title: "Upward — how long does your cash last?",
   description:
     "A transition-stage financial runway calculator. Model your cash, accounts, and levers to see how long your money lasts — and how that changes if you pull any single lever.",
 };

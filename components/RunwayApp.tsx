@@ -132,7 +132,10 @@ export function RunwayApp() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
       <header className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Runway Model</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Upward</h1>
+        <p className="mt-1 text-sm font-medium text-zinc-700">
+          See where you stand. Build your runway. Steer it upward.
+        </p>
         <p className="mt-1 text-sm text-zinc-500">
           How long does your cash last — and how does that change if you pull any single lever?
           Pick a preset, adjust the levers, then save or share a link.

@@ -73,7 +73,7 @@ export function NumberField({
           step={step}
           min={min}
           onChange={(e) => onChange(e.target.value === "" ? 0 : Number(e.target.value))}
-          className="w-full bg-transparent px-2 py-1.5 text-sm tabular-nums outline-none"
+          className="w-full bg-transparent px-2 py-1.5 text-sm tabular-nums text-zinc-900 outline-none"
         />
       </div>
       {hint ? <span className="mt-1 block text-xs text-zinc-400">{hint}</span> : null}

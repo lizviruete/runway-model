@@ -63,7 +63,7 @@ export function Levers({ scenario, onChange }: Props) {
                 onChange={(e) =>
                   setLevers({ housing: { ...L.housing, change: { ...L.housing.change!, date: e.target.value } } })
                 }
-                className="w-full rounded-lg border border-zinc-300 px-2 py-1.5 text-sm outline-none focus:border-zinc-500"
+                className="w-full rounded-lg border border-zinc-300 px-2 py-1.5 text-sm text-zinc-900 outline-none focus:border-zinc-500"
               />
             </label>
             <NumberField
@@ -154,7 +154,7 @@ function AssetSale({ scenario, onChange }: Props) {
           <input
             value={sale.label}
             onChange={(e) => patch({ label: e.target.value })}
-            className="w-full rounded border border-transparent px-1.5 py-1 text-sm font-medium hover:border-zinc-200 focus:border-zinc-400 focus:outline-none"
+            className="w-full rounded border border-transparent px-1.5 py-1 text-sm font-medium text-zinc-900 hover:border-zinc-200 focus:border-zinc-400 focus:outline-none"
           />
           <div className="grid grid-cols-2 gap-2">
             <label className="block">
@@ -163,7 +163,7 @@ function AssetSale({ scenario, onChange }: Props) {
                 type="date"
                 value={sale.saleDate}
                 onChange={(e) => patch({ saleDate: e.target.value })}
-                className="w-full rounded-lg border border-zinc-300 px-2 py-1.5 text-sm outline-none focus:border-zinc-500"
+                className="w-full rounded-lg border border-zinc-300 px-2 py-1.5 text-sm text-zinc-900 outline-none focus:border-zinc-500"
               />
             </label>
             <NumberField label="Sale price" value={sale.salePrice} step={5000} onChange={(v) => patch({ salePrice: v })} />
@@ -188,7 +188,7 @@ function AssetSale({ scenario, onChange }: Props) {
               <select
                 value={sale.tiedCreditAccountId ?? ""}
                 onChange={(e) => patch({ tiedCreditAccountId: e.target.value || undefined })}
-                className="w-full rounded-lg border border-zinc-300 px-2 py-1.5 text-sm outline-none focus:border-zinc-500"
+                className="w-full rounded-lg border border-zinc-300 px-2 py-1.5 text-sm text-zinc-900 outline-none focus:border-zinc-500"
               >
                 <option value="">None</option>
                 {creditAccounts.map((a) => (
@@ -229,7 +229,7 @@ function PctField({
           step={0.5}
           min={0}
           onChange={(e) => onChange((Number(e.target.value) || 0) / 100)}
-          className="w-full bg-transparent px-2 py-1.5 text-right text-sm tabular-nums outline-none"
+          className="w-full bg-transparent px-2 py-1.5 text-right text-sm tabular-nums text-zinc-900 outline-none"
         />
         <span className="pr-2 text-sm text-zinc-400">%</span>
       </div>
@@ -267,12 +267,12 @@ function IncomeEvents({ scenario, onChange }: Props) {
               <input
                 value={e.label}
                 onChange={(ev) => update(e.id, { label: ev.target.value })}
-                className="min-w-0 flex-1 rounded border border-transparent px-1.5 py-1 text-sm font-medium hover:border-zinc-200 focus:border-zinc-400 focus:outline-none"
+                className="min-w-0 flex-1 rounded border border-transparent px-1.5 py-1 text-sm font-medium text-zinc-900 hover:border-zinc-200 focus:border-zinc-400 focus:outline-none"
               />
               <select
                 value={e.kind}
                 onChange={(ev) => update(e.id, { kind: ev.target.value as IncomeEvent["kind"] })}
-                className="rounded border border-zinc-200 px-1.5 py-1 text-xs text-zinc-600"
+                className="rounded border border-zinc-200 px-1.5 py-1 text-xs text-zinc-900"
               >
                 <option value="recurring">Monthly</option>
                 <option value="oneoff">One-off</option>
@@ -284,7 +284,7 @@ function IncomeEvents({ scenario, onChange }: Props) {
                   value={e.amount}
                   step={100}
                   onChange={(ev) => update(e.id, { amount: Number(ev.target.value) || 0 })}
-                  className="w-20 bg-transparent px-1 py-1 text-right text-sm tabular-nums outline-none"
+                  className="w-20 bg-transparent px-1 py-1 text-right text-sm tabular-nums text-zinc-900 outline-none"
                 />
               </div>
               <button
@@ -300,7 +300,7 @@ function IncomeEvents({ scenario, onChange }: Props) {
                 type="date"
                 value={e.startDate}
                 onChange={(ev) => update(e.id, { startDate: ev.target.value })}
-                className="rounded border border-zinc-200 px-1 py-0.5 text-[11px] outline-none focus:border-zinc-400"
+                className="rounded border border-zinc-200 px-1 py-0.5 text-[11px] text-zinc-900 outline-none focus:border-zinc-400"
               />
               {e.kind === "recurring" ? (
                 <>
@@ -309,7 +309,7 @@ function IncomeEvents({ scenario, onChange }: Props) {
                     type="date"
                     value={e.endDate ?? ""}
                     onChange={(ev) => update(e.id, { endDate: ev.target.value || undefined })}
-                    className="rounded border border-zinc-200 px-1 py-0.5 text-[11px] outline-none focus:border-zinc-400"
+                    className="rounded border border-zinc-200 px-1 py-0.5 text-[11px] text-zinc-900 outline-none focus:border-zinc-400"
                   />
                   {!e.endDate ? <span className="text-zinc-400">(ongoing)</span> : null}
                 </>
@@ -351,12 +351,12 @@ function OneTimeEvents({ scenario, onChange }: Props) {
             <input
               value={e.label}
               onChange={(ev) => update(e.id, { label: ev.target.value })}
-              className="min-w-0 flex-1 rounded border border-transparent px-1.5 py-1 text-sm hover:border-zinc-200 focus:border-zinc-400 focus:outline-none"
+              className="min-w-0 flex-1 rounded border border-transparent px-1.5 py-1 text-sm text-zinc-900 hover:border-zinc-200 focus:border-zinc-400 focus:outline-none"
             />
             <select
               value={e.direction}
               onChange={(ev) => update(e.id, { direction: ev.target.value as OneTimeEvent["direction"] })}
-              className="rounded border border-zinc-200 px-1.5 py-1 text-xs text-zinc-600"
+              className="rounded border border-zinc-200 px-1.5 py-1 text-xs text-zinc-900"
             >
               <option value="inflow">In</option>
               <option value="outflow">Out</option>
@@ -365,7 +365,7 @@ function OneTimeEvents({ scenario, onChange }: Props) {
               type="date"
               value={e.date}
               onChange={(ev) => update(e.id, { date: ev.target.value })}
-              className="rounded border border-zinc-200 px-1 py-1 text-[11px] outline-none focus:border-zinc-400"
+              className="rounded border border-zinc-200 px-1 py-1 text-[11px] text-zinc-900 outline-none focus:border-zinc-400"
             />
             <div className="flex items-center rounded border border-zinc-200">
               <span className="pl-1.5 text-xs text-zinc-400">$</span>

@@ -12,12 +12,10 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* The app is a hardcoded light theme (white cards, zinc text). We intentionally
+   do NOT flip to a dark palette under prefers-color-scheme: dark — doing so made
+   inputs inherit a near-white foreground on white surfaces, so entered text read
+   like light-gray placeholder text. */
 
 body {
   background: var(--background);

@@ -85,7 +85,7 @@ export function AccountList({ scenario, onChange }: Props) {
                   value={account.name}
                   placeholder={meta.label}
                   onChange={(e) => onChange(updateAccount(scenario, account.id, { name: e.target.value }))}
-                  className="min-w-0 flex-1 rounded border border-transparent px-1.5 py-1 text-sm font-medium hover:border-zinc-200 focus:border-zinc-400 focus:outline-none"
+                  className="min-w-0 flex-1 rounded border border-transparent px-1.5 py-1 text-sm font-medium text-zinc-900 placeholder:text-zinc-400 hover:border-zinc-200 focus:border-zinc-400 focus:outline-none"
                 />
                 <div className="flex shrink-0 items-center rounded border border-zinc-200">
                   <span className="pl-1.5 text-xs text-zinc-400">$</span>
@@ -97,7 +97,7 @@ export function AccountList({ scenario, onChange }: Props) {
                     onChange={(e) =>
                       onChange(updateAccount(scenario, account.id, { balance: Number(e.target.value) || 0 }))
                     }
-                    className="w-24 bg-transparent px-1 py-1 text-right text-sm tabular-nums outline-none"
+                    className="w-24 bg-transparent px-1 py-1 text-right text-sm tabular-nums text-zinc-900 outline-none"
                   />
                 </div>
                 <button
@@ -120,7 +120,7 @@ export function AccountList({ scenario, onChange }: Props) {
                       ),
                     )
                   }
-                  className="min-w-0 flex-1 truncate rounded border border-zinc-200 bg-white px-1.5 py-1 text-xs text-zinc-600"
+                  className="min-w-0 flex-1 truncate rounded border border-zinc-200 bg-white px-1.5 py-1 text-xs text-zinc-900"
                 >
                   {ACCOUNT_TYPE_ORDER.map((t) => (
                     <option key={t} value={t}>
@@ -218,7 +218,7 @@ function Pct({
           step={0.5}
           min={0}
           onChange={(e) => onChange((Number(e.target.value) || 0) / 100)}
-          className="w-full bg-transparent px-1.5 py-1 text-right text-sm tabular-nums outline-none"
+          className="w-full bg-transparent px-1.5 py-1 text-right text-sm tabular-nums text-zinc-900 outline-none"
         />
         <span className="pr-1.5 text-xs text-zinc-400">%</span>
       </div>
@@ -267,7 +267,7 @@ function Implications({
           value={account.userNote ?? ""}
           placeholder="Optional — document anything relevant"
           onChange={(e) => onChange(updateAccount(scenario, account.id, { userNote: e.target.value }))}
-          className="w-full rounded border border-zinc-200 px-1.5 py-1 text-sm outline-none focus:border-zinc-400"
+          className="w-full rounded border border-zinc-200 px-1.5 py-1 text-sm text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-zinc-400"
         />
       </label>
     </div>

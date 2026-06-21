@@ -4,7 +4,7 @@
 // (rather than blocking it the way `X-Frame-Options: DENY` would).
 
 export const metadata = {
-  title: "Runway Model — embed test",
+  title: "Upward — embed test",
 };
 
 export default function EmbedTest() {
@@ -19,7 +19,7 @@ export default function EmbedTest() {
         <div className="overflow-hidden rounded-xl border border-zinc-300 bg-white shadow-sm">
           <iframe
             src="https://runway.lizbuilds.ai/"
-            title="Runway Model"
+            title="Upward"
             className="h-[80vh] w-full"
           />
         </div>
@@ -28,7 +28,7 @@ export default function EmbedTest() {
         </p>
         <pre className="mt-1 overflow-x-auto rounded-lg bg-zinc-900 p-3 text-xs text-zinc-100">
 {`<iframe src="https://runway.lizbuilds.ai/"
-        title="Runway Model"
+        title="Upward"
         style="width:100%;height:80vh;border:0;border-radius:12px"
         loading="lazy"></iframe>`}
         </pre>

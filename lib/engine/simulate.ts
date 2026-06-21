@@ -1,5 +1,5 @@
 // =============================================================================
-// Runway Model — the simulation engine.
+// Upward — the simulation engine.
 //
 // Pure function: simulate(scenario) -> SimulationResult. No React, no DOM, no
 // `Date.now()`. Month-by-month walk of the timeline maintaining a per-account
