@@ -48,11 +48,11 @@ export function AccountList({ scenario, onChange }: Props) {
 
   return (
     <section>
-      <SectionTitle hint={`${formatCurrency(totalAssets)} in assets · tapped top → bottom`}>
+      <SectionTitle hint={`${formatCurrency(totalAssets)} in assets · drag to set tap order`}>
         Accounts
       </SectionTitle>
 
-      <div className="space-y-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {accounts.map((account, i) => {
           const meta = ACCOUNT_TYPE_META[account.type];
           const credit = isCreditType(account.type);
@@ -109,7 +109,7 @@ export function AccountList({ scenario, onChange }: Props) {
                 </button>
               </div>
 
-              {/* line 2: type select · reorder · expand */}
+              {/* line 2: type select · expand (drag the number chip to reorder) */}
               <div className="mt-1.5 flex items-center gap-2 pl-8">
                 <select
                   value={account.type}
@@ -129,24 +129,8 @@ export function AccountList({ scenario, onChange }: Props) {
                   ))}
                 </select>
                 <button
-                  onClick={() => reorder(i, i - 1)}
-                  disabled={i === 0}
-                  className="rounded px-1 text-xs text-zinc-400 hover:bg-zinc-100 disabled:opacity-30"
-                  title="Tapped sooner"
-                >
-                  ↑
-                </button>
-                <button
-                  onClick={() => reorder(i, i + 1)}
-                  disabled={i === accounts.length - 1}
-                  className="rounded px-1 text-xs text-zinc-400 hover:bg-zinc-100 disabled:opacity-30"
-                  title="Tapped later"
-                >
-                  ↓
-                </button>
-                <button
                   onClick={() => toggle(account.id)}
-                  className="rounded px-1.5 text-xs text-zinc-400 hover:bg-zinc-100"
+                  className="shrink-0 rounded px-1.5 text-xs text-zinc-400 hover:bg-zinc-100"
                   title="Edit tax / cost implications"
                 >
                   {isOpen ? "▴" : "▾"}

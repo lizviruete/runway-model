@@ -177,23 +177,20 @@ export function RunwayApp() {
         <HeroMetrics result={result} baseline={baseline} />
       </div>
 
-      {/* Controls left (clamped ~380–420px), outputs right (chart over ledger)
-          and grown to fill on wide screens. Below lg / in the narrow embed it
-          collapses to a single column ordered hero → chart → controls → ledger. */}
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(380px,420px)_minmax(0,1fr)] lg:items-start">
-        {/* Controls panel — Accounts then Levers, stacked */}
-        <div className="order-2 space-y-6 lg:order-none lg:row-span-2">
-          <Card className="p-5">
-            <AccountList scenario={scenario} onChange={update} />
-          </Card>
-          <Card className="p-5">
-            <Levers scenario={scenario} onChange={update} />
-          </Card>
-        </div>
+      {/* Main loop — Levers (left, clamped) paired with the Runway chart
+          (right), which grows to fill the remaining width AND stretches to the
+          height of the Levers column. Below lg / in the narrow embed it
+          collapses to a single column, chart first. */}
+      <div className="mt-6 grid grid-cols-1 items-stretch gap-6 lg:grid-cols-[minmax(360px,440px)_minmax(0,1fr)]">
+        {/* Levers — left */}
+        <Card className="order-2 p-5 lg:order-none">
+          <Levers scenario={scenario} onChange={update} />
+        </Card>
 
-        {/* Merged runway chart — net-liquid line + baseline (Total), or stacked
-            account bands with the authoritative net-liquid line (By account). */}
-        <Card className="order-1 p-5 lg:order-none">
+        {/* Merged runway chart — right; fills its cell. Net-liquid line +
+            baseline (Total), or stacked account bands + the authoritative
+            net-liquid line (By account). */}
+        <Card className="order-1 flex flex-col p-5 lg:order-none">
           <div className="mb-3 flex items-center justify-between gap-3">
             <SectionTitle hint={isEdited ? "Solid = current · dashed = baseline" : "Net liquid over time"}>
               Runway
@@ -220,12 +217,17 @@ export function RunwayApp() {
             mode={mode}
           />
         </Card>
-
-        {/* Ledger */}
-        <Card className="order-3 p-5 lg:order-none">
-          <LedgerView result={result} />
-        </Card>
       </div>
+
+      {/* Accounts — full-width responsive grid (2–3 per row wide, 1 narrow). */}
+      <Card className="mt-6 p-5">
+        <AccountList scenario={scenario} onChange={update} />
+      </Card>
+
+      {/* Ledger — full width at the bottom. */}
+      <Card className="mt-6 p-5">
+        <LedgerView result={result} />
+      </Card>
 
       <footer className="mt-10 text-center text-xs text-zinc-400">
         Sample data is fictional. Not financial advice.

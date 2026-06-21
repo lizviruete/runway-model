@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { assetTimelines, chartMax, type ChartMode } from "@/lib/chart";
 import { daysBetween } from "@/lib/engine/dates";
 import type { AccountTimeline, ProjectionPoint } from "@/lib/engine/types";
@@ -18,11 +19,7 @@ interface Props {
   mode: ChartMode;
 }
 
-const W = 820;
-const H = 340;
-const PAD = { left: 60, right: 18, top: 16, bottom: 30 };
-const PLOT_W = W - PAD.left - PAD.right;
-const PLOT_H = H - PAD.top - PAD.bottom;
+const PAD = { left: 58, right: 16, top: 16, bottom: 28 };
 
 /** Display floor: the net-liquid line is clamped at zero (the true,
  *  possibly-negative figure is preserved in the ledger data). */
@@ -39,6 +36,27 @@ export function RunwayChart({
   startDate,
   mode,
 }: Props) {
+  // Measure the plot area so the SVG fills its container exactly (1 unit = 1px,
+  // no distortion): it grows wider on big monitors AND taller to match the
+  // column it's paired with.
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ w: 760, h: 360 });
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      if (width > 0 && height > 0) setSize({ w: Math.round(width), h: Math.round(height) });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const W = size.w;
+  const H = size.h;
+  const PLOT_W = W - PAD.left - PAD.right;
+  const PLOT_H = H - PAD.top - PAD.bottom;
+
   const n = current.length;
   const assets = assetTimelines(timelines);
   const x = (i: number) => PAD.left + (n <= 1 ? 0 : (i / (n - 1)) * PLOT_W);
@@ -51,8 +69,7 @@ export function RunwayChart({
   const area = (pts: ProjectionPoint[]) =>
     `${line(pts)} L ${x(pts.length - 1).toFixed(1)} ${y(0).toFixed(1)} L ${x(0).toFixed(1)} ${y(0).toFixed(1)} Z`;
 
-  // Stacked asset bands — last-tapped at the bottom, first-tapped on top, so
-  // the account being drawn down is the visible top band.
+  // Stacked asset bands — last-tapped at the bottom, first-tapped on top.
   const stackOrder = [...assets].reverse();
   const bands = stackOrder.map((t, idx) => {
     const below = stackOrder.slice(0, idx);
@@ -82,49 +99,58 @@ export function RunwayChart({
   const byAccount = mode === "byAccount";
 
   return (
-    <div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label="Runway projection over time">
-        {/* y gridlines + labels */}
-        {yTicks.map((v) => (
-          <g key={v}>
-            <line x1={PAD.left} y1={y(v)} x2={W - PAD.right} y2={y(v)} stroke="#f1f1f4" strokeWidth={1} />
-            <text x={PAD.left - 8} y={y(v) + 3} textAnchor="end" className="fill-zinc-400 text-[11px]">
-              {formatCurrency(v)}
+    <div className="flex min-h-[19rem] flex-1 flex-col">
+      <div ref={wrapRef} className="min-h-0 flex-1 overflow-hidden">
+        <svg
+          width={W}
+          height={H}
+          viewBox={`0 0 ${W} ${H}`}
+          className="block"
+          role="img"
+          aria-label="Runway projection over time"
+        >
+          {/* y gridlines + labels */}
+          {yTicks.map((v) => (
+            <g key={v}>
+              <line x1={PAD.left} y1={y(v)} x2={W - PAD.right} y2={y(v)} stroke="#f1f1f4" strokeWidth={1} />
+              <text x={PAD.left - 8} y={y(v) + 3} textAnchor="end" className="fill-zinc-400 text-[11px]">
+                {formatCurrency(v)}
+              </text>
+            </g>
+          ))}
+
+          {/* stacked asset bands (by-account view only) */}
+          {byAccount
+            ? bands.map(({ t, d }) => (
+                <path key={t.accountId} d={d} fill={TYPE_COLORS[t.type]} fillOpacity={0.85} stroke="white" strokeWidth={0.5} />
+              ))
+            : <path d={area(current)} fill="#10b98122" stroke="none" />}
+
+          {/* baseline overlay (dashed) */}
+          {showBaseline && baseline ? (
+            <path d={line(baseline)} fill="none" stroke="#a1a1aa" strokeWidth={1.5} strokeDasharray="4 4" />
+          ) : null}
+
+          {/* authoritative net-liquid line — sits on/below the stack top and
+              diverges downward when a credit line is drawn */}
+          <path d={line(current)} fill="none" stroke="#059669" strokeWidth={2.5} strokeLinejoin="round" />
+
+          {/* cash-zero marker */}
+          {zeroX !== null ? (
+            <g>
+              <line x1={zeroX} y1={PAD.top} x2={zeroX} y2={PAD.top + PLOT_H} stroke="#dc2626" strokeWidth={1.5} strokeDasharray="3 3" />
+              <circle cx={zeroX} cy={PAD.top + PLOT_H} r={3.5} fill="#dc2626" />
+            </g>
+          ) : null}
+
+          {/* x labels */}
+          {xLabels.map(({ p, i }) => (
+            <text key={i} x={x(i)} y={H - 9} textAnchor="middle" className="fill-zinc-400 text-[11px]">
+              {formatMonthShort(p.date)}
             </text>
-          </g>
-        ))}
-
-        {/* stacked asset bands (by-account view only) */}
-        {byAccount
-          ? bands.map(({ t, d }) => (
-              <path key={t.accountId} d={d} fill={TYPE_COLORS[t.type]} fillOpacity={0.85} stroke="white" strokeWidth={0.5} />
-            ))
-          : <path d={area(current)} fill="#10b98122" stroke="none" />}
-
-        {/* baseline overlay (dashed) */}
-        {showBaseline && baseline ? (
-          <path d={line(baseline)} fill="none" stroke="#a1a1aa" strokeWidth={1.5} strokeDasharray="4 4" />
-        ) : null}
-
-        {/* authoritative net-liquid line — sits on/below the stack top and
-            diverges downward when a credit line is drawn */}
-        <path d={line(current)} fill="none" stroke="#059669" strokeWidth={2.5} strokeLinejoin="round" />
-
-        {/* cash-zero marker */}
-        {zeroX !== null ? (
-          <g>
-            <line x1={zeroX} y1={PAD.top} x2={zeroX} y2={PAD.top + PLOT_H} stroke="#dc2626" strokeWidth={1.5} strokeDasharray="3 3" />
-            <circle cx={zeroX} cy={PAD.top + PLOT_H} r={3.5} fill="#dc2626" />
-          </g>
-        ) : null}
-
-        {/* x labels */}
-        {xLabels.map(({ p, i }) => (
-          <text key={i} x={x(i)} y={H - 10} textAnchor="middle" className="fill-zinc-400 text-[11px]">
-            {formatMonthShort(p.date)}
-          </text>
-        ))}
-      </svg>
+          ))}
+        </svg>
+      </div>
 
       {/* legend */}
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
