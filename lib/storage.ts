@@ -9,6 +9,7 @@ const LAST_KEY = "runway:last";
 export interface SavedScenario {
   key: string; // storage key (distinct from scenario.id)
   name: string;
+  notes?: string; // optional free-text description
   savedAt: string; // ISO-ish label; supplied by caller (no Date in lib core)
   scenario: Scenario;
 }
@@ -44,10 +45,15 @@ export function listSaved(): SavedScenario[] {
   return read<SavedScenario[]>(SAVED_KEY, []);
 }
 
-export function saveScenario(name: string, scenario: Scenario, savedAt: string): SavedScenario[] {
+export function saveScenario(
+  name: string,
+  scenario: Scenario,
+  savedAt: string,
+  notes?: string,
+): SavedScenario[] {
   const all = listSaved();
   // Names are unique (re-saving a name overwrites), so the name is the key.
-  const entry: SavedScenario = { key: name, name, savedAt, scenario };
+  const entry: SavedScenario = { key: name, name, notes: notes || undefined, savedAt, scenario };
   const next = [entry, ...all.filter((s) => s.name !== name)];
   write(SAVED_KEY, next);
   return next;

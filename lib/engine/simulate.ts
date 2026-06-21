@@ -233,13 +233,6 @@ export function simulate(scenario: Scenario): SimulationResult {
       add(acc.get(operating.account.id)!.inflows, "income", amt);
       tx(monthStart, operating, "income", amt, ev.label);
     }
-    for (const ev of levers.oneTimeEvents) {
-      if (ev.direction !== "inflow" || !sameMonth(ev.date, monthStart)) continue;
-      inflowTotal += ev.amount;
-      operating.balance += ev.amount;
-      add(acc.get(operating.account.id)!.inflows, "oneTime", ev.amount);
-      tx(ev.date, operating, "oneTime", ev.amount, ev.label);
-    }
 
     // ---- 4b. major asset sale lever --------------------------------------
     const sale = levers.assetSale;
@@ -335,13 +328,19 @@ export function simulate(scenario: Scenario): SimulationResult {
       }
     }
 
-    // 5c. dated one-time outflows
-    for (const ev of levers.oneTimeEvents) {
-      if (ev.direction !== "outflow" || !sameMonth(ev.date, monthStart)) continue;
-      operating.balance -= ev.amount;
-      outflowTotal += ev.amount;
-      add(opOut, "oneTime", ev.amount);
-      tx(ev.date, operating, "oneTime", -ev.amount, ev.label);
+    // 5c. added expenses (recurring or one-off), beyond housing + living
+    for (const ev of levers.expenseEvents ?? []) {
+      let amt = 0;
+      if (ev.kind === "recurring") {
+        if (monthInRange(monthStart, ev.startDate, ev.endDate)) amt = ev.amount;
+      } else if (sameMonth(ev.startDate, monthStart)) {
+        amt = ev.amount;
+      }
+      if (amt <= 0) continue;
+      operating.balance -= amt;
+      outflowTotal += amt;
+      add(opOut, "expense", amt);
+      tx(ev.kind === "recurring" ? monthStart : ev.startDate, operating, "expense", -amt, ev.label);
     }
 
     // 5d. credit interest (accrued in step 2) is paid from operating cash

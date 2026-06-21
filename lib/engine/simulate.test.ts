@@ -47,7 +47,7 @@ function scn(o: {
       housing: { monthlyAmount: 0 },
       targetMonthlySpend: 0,
       incomeEvents: [],
-      oneTimeEvents: [],
+      expenseEvents: [],
       ...o.levers,
     },
     baselineMonthlySpend: o.baselineMonthlySpend,
@@ -281,24 +281,48 @@ describe("housing change date", () => {
   });
 });
 
-describe("one-time dated events", () => {
-  it("applies inflows and outflows in their month only", () => {
+describe("one-off income + expense events", () => {
+  it("applies a one-off income and a one-off expense in their month only", () => {
     const res = simulate(
       scn({
         accounts: [acct({ type: "checking", balance: 1_000_000, priority: 1 })],
         levers: {
-          oneTimeEvents: [
-            { id: "in", label: "Sale", date: "2026-02-10", amount: 5_000, direction: "inflow" },
-            { id: "out", label: "Bill", date: "2026-03-10", amount: 3_000, direction: "outflow" },
+          incomeEvents: [
+            { id: "in", label: "Sale", kind: "oneoff", amount: 5_000, startDate: "2026-02-10" },
+          ],
+          expenseEvents: [
+            { id: "out", label: "Bill", kind: "oneoff", amount: 3_000, startDate: "2026-03-10" },
           ],
         },
       }),
     );
     const feb = res.months.find((m) => m.monthKey === "2026-02")!.accounts[0];
     const mar = res.months.find((m) => m.monthKey === "2026-03")!.accounts[0];
-    expect(feb.inflows.oneTime).toBe(5_000);
-    expect(mar.outflows.oneTime).toBe(3_000);
-    expect(feb.outflows.oneTime ?? 0).toBe(0);
+    expect(feb.inflows.income).toBe(5_000);
+    expect(mar.outflows.expense).toBe(3_000);
+    expect(feb.outflows.expense ?? 0).toBe(0);
+  });
+
+  it("applies a recurring expense between its start and end months", () => {
+    const res = simulate(
+      scn({
+        start: "2026-01-01",
+        end: "2026-06-30",
+        accounts: [acct({ type: "checking", balance: 1_000_000, priority: 1 })],
+        levers: {
+          expenseEvents: [
+            { id: "child", label: "Childcare", kind: "recurring", amount: 1_200, startDate: "2026-02-01", endDate: "2026-04-30" },
+          ],
+        },
+      }),
+    );
+    const expenseIn = (mk: string) =>
+      res.months.find((m) => m.monthKey === mk)!.accounts[0].outflows.expense ?? 0;
+    expect(expenseIn("2026-01")).toBe(0);
+    expect(expenseIn("2026-02")).toBe(1_200);
+    expect(expenseIn("2026-04")).toBe(1_200);
+    expect(expenseIn("2026-05")).toBe(0);
+    expect(sumCategory(res, "expense")).toBeCloseTo(1_200 * 3, 6);
   });
 });
 

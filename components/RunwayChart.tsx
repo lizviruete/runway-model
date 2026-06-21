@@ -17,6 +17,9 @@ interface Props {
   cashZeroDate: string | null;
   startDate: string;
   mode: ChartMode;
+  /** Legend label + tooltip for the dashed baseline overlay. */
+  baselineLabel?: string;
+  baselineHelp?: string;
 }
 
 const PAD = { left: 58, right: 16, top: 16, bottom: 28 };
@@ -35,6 +38,8 @@ export function RunwayChart({
   cashZeroDate,
   startDate,
   mode,
+  baselineLabel = "Baseline",
+  baselineHelp,
 }: Props) {
   // Measure the plot area so the SVG fills its container exactly (1 unit = 1px,
   // no distortion): it grows wider on big monitors AND taller to match the
@@ -99,7 +104,7 @@ export function RunwayChart({
   const byAccount = mode === "byAccount";
 
   return (
-    <div className="flex min-h-[19rem] flex-1 flex-col">
+    <div className="flex min-h-[26rem] flex-1 flex-col">
       <div ref={wrapRef} className="min-h-0 flex-1 overflow-hidden">
         <svg
           width={W}
@@ -174,9 +179,9 @@ export function RunwayChart({
               Net liquid
             </span>
             {showBaseline ? (
-              <span className="flex items-center gap-1.5 text-xs text-zinc-500">
+              <span className="flex items-center gap-1.5 text-xs text-zinc-500" title={baselineHelp}>
                 <span className="inline-block h-0 w-4 border-t-2 border-dashed border-zinc-400" />
-                Baseline
+                {baselineLabel}
               </span>
             ) : null}
           </>

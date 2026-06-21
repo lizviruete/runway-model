@@ -15,7 +15,11 @@ describe("sample scenario — as-of anchoring", () => {
     expect(unemployment.startDate).toBe("2026-09-01");
     expect(unemployment.endDate).toBe("2027-02-28");
     expect(s.levers.housing.change!.date).toBe("2026-09-01");
-    expect(s.levers.oneTimeEvents[0].date).toBe("2026-08-01");
+    const assetSale = s.levers.incomeEvents.find((e) => e.id === "one-asset-sale")!;
+    expect(assetSale.kind).toBe("oneoff");
+    expect(assetSale.startDate).toBe("2026-08-01");
+    // The standalone one-time section is gone; one-offs live in the flow lists.
+    expect("oneTimeEvents" in s.levers).toBe(false);
   });
 
   it("expresses every event relative to the anchor", () => {
@@ -29,7 +33,7 @@ describe("sample scenario — as-of anchoring", () => {
     expect(unemployment.startDate).toBe("2027-05-01"); // anchor + 2 months
     expect(unemployment.endDate).toBe("2027-10-31"); // ~6 months
     expect(s.levers.housing.change!.date).toBe("2027-05-01");
-    expect(s.levers.oneTimeEvents[0].date).toBe("2027-04-01"); // anchor + 1 month
+    expect(s.levers.incomeEvents.find((e) => e.id === "one-asset-sale")!.startDate).toBe("2027-04-01"); // anchor + 1 month
   });
 
   it("tells the same ~9-month crunch regardless of the anchor", () => {

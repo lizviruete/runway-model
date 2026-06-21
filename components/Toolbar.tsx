@@ -10,11 +10,13 @@ interface Props {
   onApplyPreset: (preset: Preset) => void;
   onCopyLink: () => void;
   copied: boolean;
-  onSave: (name: string) => void;
+  onSave: (name: string, notes: string) => void;
+  onSaveAsBaseline: () => void;
   saved: SavedScenario[];
   onLoad: (entry: SavedScenario) => void;
   onDelete: (key: string) => void;
   onReset: () => void;
+  onStartFresh: () => void;
 }
 
 export function Toolbar({
@@ -24,19 +26,23 @@ export function Toolbar({
   onCopyLink,
   copied,
   onSave,
+  onSaveAsBaseline,
   saved,
   onLoad,
   onDelete,
   onReset,
+  onStartFresh,
 }: Props) {
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
+  const [notes, setNotes] = useState("");
   const [showSaved, setShowSaved] = useState(false);
 
   const commitSave = () => {
     const trimmed = name.trim();
-    if (trimmed) onSave(trimmed);
+    if (trimmed) onSave(trimmed, notes.trim());
     setName("");
+    setNotes("");
     setSaving(false);
   };
 
@@ -81,7 +87,17 @@ export function Toolbar({
                 if (e.key === "Escape") setSaving(false);
               }}
               placeholder="Scenario name"
-              className="rounded-lg border border-zinc-300 px-2 py-1.5 text-xs outline-none focus:border-zinc-500"
+              className="w-36 rounded-lg border border-zinc-300 px-2 py-1.5 text-xs text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-zinc-500"
+            />
+            <input
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitSave();
+                if (e.key === "Escape") setSaving(false);
+              }}
+              placeholder="Notes (optional)"
+              className="w-48 rounded-lg border border-zinc-300 px-2 py-1.5 text-xs text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-zinc-500"
             />
             <button onClick={commitSave} className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white">
               Save
@@ -98,6 +114,14 @@ export function Toolbar({
             Save scenario
           </button>
         )}
+
+        <button
+          onClick={onSaveAsBaseline}
+          title="Lock the current inputs as the reference the dashed line and Δ compare against"
+          className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:border-zinc-400"
+        >
+          Save as baseline
+        </button>
 
         {saved.length > 0 ? (
           <div className="relative">
@@ -116,11 +140,14 @@ export function Toolbar({
                         onLoad(s);
                         setShowSaved(false);
                       }}
-                      className="min-w-0 flex-1 truncate text-left text-xs text-zinc-700"
-                      title={s.name}
+                      className="min-w-0 flex-1 text-left text-xs text-zinc-700"
+                      title={s.notes || s.name}
                     >
-                      {s.name}
-                      <span className="ml-1 text-[10px] text-zinc-400">{s.savedAt}</span>
+                      <span className="truncate">
+                        {s.name}
+                        <span className="ml-1 text-[10px] text-zinc-400">{s.savedAt}</span>
+                      </span>
+                      {s.notes ? <span className="block truncate text-[10px] text-zinc-400">{s.notes}</span> : null}
                     </button>
                     <button
                       onClick={() => onDelete(s.key)}
@@ -135,9 +162,15 @@ export function Toolbar({
           </div>
         ) : null}
 
-        <button onClick={onReset} className="ml-auto text-xs text-zinc-400 hover:text-zinc-600">
-          Reset to sample
-        </button>
+        <div className="ml-auto flex items-center gap-3">
+          <button onClick={onStartFresh} className="text-xs text-zinc-400 hover:text-zinc-600">
+            Start fresh
+          </button>
+          <span className="text-zinc-300">·</span>
+          <button onClick={onReset} className="text-xs text-zinc-400 hover:text-zinc-600">
+            Reset to sample
+          </button>
+        </div>
       </div>
     </div>
   );

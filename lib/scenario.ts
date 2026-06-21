@@ -62,6 +62,6 @@ export function newIncomeId(): string {
   return newId("inc");
 }
 
-export function newEventId(): string {
-  return newId("one");
+export function newExpenseId(): string {
+  return newId("exp");
 }

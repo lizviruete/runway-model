@@ -9,7 +9,7 @@ describe("monthly rows CSV", () => {
   it("has a header and one row per account per month", () => {
     const lines = monthlyRowsCSV(res).split("\n");
     expect(lines[0]).toBe(
-      "month,account,type,opening,income,housing,living,oneTime,assetSale,assetCarry,tax,creditInterest,interestEarned,tapIn,tapOut,closing",
+      "month,account,type,opening,income,housing,living,expense,assetSale,assetCarry,tax,creditInterest,interestEarned,tapIn,tapOut,closing",
     );
     expect(lines.length - 1).toBe(res.months.length * res.months[0].accounts.length);
   });
@@ -38,12 +38,12 @@ describe("transactions CSV", () => {
       ...createSampleScenario(),
       levers: {
         ...createSampleScenario().levers,
-        oneTimeEvents: [
-          { id: "x", label: "Sold couch, lamp", date: "2026-08-01", amount: 200, direction: "inflow" },
+        expenseEvents: [
+          { id: "x", label: "Furniture, lamps, rugs", kind: "oneoff", amount: 200, startDate: "2026-08-01" },
         ],
       },
     });
-    expect(transactionsCSV(tricky)).toContain('"Sold couch, lamp"');
+    expect(transactionsCSV(tricky)).toContain('"Furniture, lamps, rugs"');
   });
 });
 

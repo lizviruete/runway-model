@@ -18,6 +18,9 @@ import type { Account, AccountType, Scenario } from "./engine/types";
 /** Canonical anchor for deterministic tests + the SSR/first render. */
 export const SAMPLE_AS_OF = "2026-07-01";
 
+/** Reserved id for the always-on "Salary / primary income" core lever. */
+export const SALARY_ID = "inc-salary";
+
 /** Last calendar day of the month containing `iso`. */
 function endOfMonth(iso: string): string {
   const { y, m } = parseISO(iso);
@@ -81,6 +84,14 @@ export function createSampleScenario(asOf: string = SAMPLE_AS_OF): Scenario {
       targetMonthlySpend: 6_500,
       incomeEvents: [
         {
+          // Core always-on lever: $0 because income has paused (a layoff).
+          id: SALARY_ID,
+          label: "Salary / primary income",
+          kind: "recurring",
+          amount: 0,
+          startDate: start,
+        },
+        {
           id: "inc-severance",
           label: "Severance",
           kind: "recurring",
@@ -96,17 +107,41 @@ export function createSampleScenario(asOf: string = SAMPLE_AS_OF): Scenario {
           startDate: monthStart(2),
           endDate: endOfMonth(addMonths(start, 7)), // ~6 months
         },
-      ],
-      oneTimeEvents: [
         {
+          // A one-off inflow (was the standalone one-time section).
           id: "one-asset-sale",
           label: "Asset sale",
-          date: monthStart(1), // anchor's month 2
+          kind: "oneoff",
           amount: 8_000,
-          direction: "inflow",
+          startDate: monthStart(1), // anchor's month 2
         },
       ],
+      expenseEvents: [],
     },
     baselineMonthlySpend: 6_500,
+  };
+}
+
+/** A blank slate — everything at $0, anchored to `asOf` — for "Start fresh". */
+export function createBlankScenario(asOf: string = SAMPLE_AS_OF): Scenario {
+  const start = asOf;
+  return {
+    id: "blank",
+    name: "My scenario",
+    createdDate: start,
+    timeline: { start, end: endOfMonth(addMonths(start, 59)) },
+    accounts: [
+      account("acc-checking", "Checking", "checking", 0, 1),
+      account("acc-savings", "Savings", "savings", 0, 2),
+    ],
+    levers: {
+      housing: { monthlyAmount: 0 },
+      targetMonthlySpend: 0,
+      incomeEvents: [
+        { id: SALARY_ID, label: "Salary / primary income", kind: "recurring", amount: 0, startDate: start },
+      ],
+      expenseEvents: [],
+    },
+    baselineMonthlySpend: 0,
   };
 }

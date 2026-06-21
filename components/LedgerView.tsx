@@ -2,7 +2,7 @@
 
 import { Fragment, useState } from "react";
 import type { LedgerCategory, SimulationResult } from "@/lib/engine/types";
-import { ledgerJSON, monthlyRowsCSV, transactionsCSV } from "@/lib/exporters";
+import { monthlyRowsCSV, transactionsCSV } from "@/lib/exporters";
 import { formatCurrency, formatDate, formatMonthYear } from "@/lib/format";
 import { SectionTitle } from "./ui";
 
@@ -21,7 +21,7 @@ const CATEGORY_LABELS: Record<LedgerCategory, string> = {
   income: "Income",
   housing: "Housing",
   living: "Living",
-  oneTime: "One-time",
+  expense: "Expense",
   assetSale: "Asset sale",
   assetCarry: "Carrying cost",
   tax: "Tax/penalty",
@@ -91,12 +91,6 @@ export function LedgerView({ result }: { result: SimulationResult }) {
             className="rounded border border-zinc-200 px-2 py-0.5 text-zinc-600 hover:bg-zinc-50"
           >
             Transactions CSV
-          </button>
-          <button
-            onClick={() => download("upward-ledger.json", "application/json", ledgerJSON(result))}
-            className="rounded border border-zinc-200 px-2 py-0.5 text-zinc-600 hover:bg-zinc-50"
-          >
-            JSON
           </button>
         </div>
       </div>

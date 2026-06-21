@@ -8,7 +8,7 @@ const CATEGORIES: LedgerCategory[] = [
   "income",
   "housing",
   "living",
-  "oneTime",
+  "expense",
   "assetSale",
   "assetCarry",
   "tax",

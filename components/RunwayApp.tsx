@@ -6,7 +6,7 @@ import { visibleMonthCount } from "@/lib/chartWindow";
 import { simulate } from "@/lib/engine/simulate";
 import type { Scenario } from "@/lib/engine/types";
 import { PRESETS, type Preset } from "@/lib/presets";
-import { createSampleScenario, SAMPLE_AS_OF } from "@/lib/sample";
+import { createBlankScenario, createSampleScenario, SAMPLE_AS_OF } from "@/lib/sample";
 import { encodeScenario, scenarioFromSearch, shareableUrl } from "@/lib/share";
 import {
   deleteSaved,
@@ -29,6 +29,10 @@ function todayISO(): string {
   // App-side only; fine to read the clock here (not the pure engine).
   return new Date().toISOString().slice(0, 10);
 }
+
+const BASELINE_LABEL = "Baseline — your plan, carried forward, no changes.";
+const BASELINE_HELP =
+  "Your financial picture heading into a major life transition — a layoff, leave, sabbatical, or going out on your own — projected forward as if everything stays the same. Every scenario you build is measured against it.";
 
 export function RunwayApp() {
   // SSR + first render use the canonical anchor so the markup is deterministic;
@@ -117,19 +121,37 @@ export function RunwayApp() {
     setCopied(true);
   };
 
-  const onSave = (name: string) => setSaved(saveScenario(name, scenario, todayISO()));
+  const onSave = (name: string, notes: string) =>
+    setSaved(saveScenario(name, scenario, todayISO(), notes));
   const onLoad = (entry: SavedScenario) => {
     setScenario(entry.scenario);
     setActivePresetId(null);
   };
   const onDelete = (key: string) => setSaved(deleteSaved(key));
   const onReset = () => {
-    // Restore the pristine, today-anchored sample. The persist effect then
-    // clears the `?s=` param since this equals the baseline.
-    setScenario(baselineScenario);
+    // Restore the pristine, today-anchored sample.
+    const sample = createSampleScenario(today);
+    setBaselineScenario(sample);
+    setScenario(sample);
     setActivePresetId("baseline");
     setCopied(false);
   };
+  const onStartFresh = () => {
+    // Blank slate — all inputs $0. Baseline stays the sample reference.
+    setScenario(createBlankScenario(today));
+    setActivePresetId(null);
+    setCopied(false);
+  };
+  const onSaveAsBaseline = () => {
+    // Lock the current inputs as the reference for the dashed line + Δ.
+    setBaselineScenario(scenario);
+    setActivePresetId("baseline");
+    setCopied(false);
+  };
+
+  const activeScenarioName = activePresetId
+    ? (PRESETS.find((p) => p.id === activePresetId)?.name ?? "Custom scenario")
+    : "Custom scenario";
 
   // Auto-scale the chart x-axis to the meaningful window.
   const windowMonths = useMemo(
@@ -163,10 +185,12 @@ export function RunwayApp() {
         onCopyLink={copyLink}
         copied={copied}
         onSave={onSave}
+        onSaveAsBaseline={onSaveAsBaseline}
         saved={saved}
         onLoad={onLoad}
         onDelete={onDelete}
         onReset={onReset}
+        onStartFresh={onStartFresh}
       />
 
       <div className="mt-4">
@@ -191,10 +215,8 @@ export function RunwayApp() {
             baseline (Total), or stacked account bands + the authoritative
             net-liquid line (By account). */}
         <Card className="order-1 flex flex-col p-5 lg:order-none">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <SectionTitle hint={isEdited ? "Solid = current · dashed = baseline" : "Net liquid over time"}>
-              Runway
-            </SectionTitle>
+          <div className="mb-1 flex items-center justify-between gap-3">
+            <SectionTitle hint={activeScenarioName}>Runway</SectionTitle>
             <div className="flex shrink-0 overflow-hidden rounded-lg border border-zinc-200 text-xs">
               {(["total", "byAccount"] as const).map((m) => (
                 <button
@@ -207,6 +229,9 @@ export function RunwayApp() {
               ))}
             </div>
           </div>
+          <p className="mb-2 cursor-help text-xs text-zinc-400" title={BASELINE_HELP}>
+            {BASELINE_LABEL}
+          </p>
           <RunwayChart
             current={currentProjection}
             baseline={baselineProjection}
@@ -215,6 +240,8 @@ export function RunwayApp() {
             cashZeroDate={result.runway.cashZeroDate}
             startDate={scenario.timeline.start}
             mode={mode}
+            baselineLabel={BASELINE_LABEL}
+            baselineHelp={BASELINE_HELP}
           />
         </Card>
       </div>

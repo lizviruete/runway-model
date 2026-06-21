@@ -11,7 +11,7 @@ import {
   renumber,
   updateAccount,
 } from "@/lib/scenario";
-import { SectionTitle, TYPE_COLORS } from "./ui";
+import { TYPE_COLORS } from "./ui";
 
 interface Props {
   scenario: Scenario;
@@ -48,11 +48,23 @@ export function AccountList({ scenario, onChange }: Props) {
 
   return (
     <section>
-      <SectionTitle hint={`${formatCurrency(totalAssets)} in assets · drag to set tap order`}>
-        Accounts
-      </SectionTitle>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-baseline gap-x-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Accounts</h2>
+          <span className="text-xs text-zinc-400">
+            {formatCurrency(totalAssets)} in assets · drag to set tap order
+          </span>
+        </div>
+        <button
+          onClick={addAccount}
+          className="shrink-0 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-600 hover:border-zinc-400 hover:text-zinc-800"
+        >
+          + Add account
+        </button>
+      </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="-mr-1 max-h-[20rem] overflow-y-auto pr-1">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {accounts.map((account, i) => {
           const meta = ACCOUNT_TYPE_META[account.type];
           const credit = isCreditType(account.type);
@@ -148,14 +160,8 @@ export function AccountList({ scenario, onChange }: Props) {
             </div>
           );
         })}
+        </div>
       </div>
-
-      <button
-        onClick={addAccount}
-        className="mt-2 w-full rounded-lg border border-dashed border-zinc-300 py-2 text-sm text-zinc-500 hover:border-zinc-400 hover:text-zinc-700"
-      >
-        + Add account
-      </button>
     </section>
   );
 }

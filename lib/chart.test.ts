@@ -31,7 +31,7 @@ function scenario(accounts: Account[], start: string, end: string): Scenario {
     createdDate: start,
     timeline: { start, end },
     accounts,
-    levers: { housing: { monthlyAmount: 0 }, targetMonthlySpend: 0, incomeEvents: [], oneTimeEvents: [] },
+    levers: { housing: { monthlyAmount: 0 }, targetMonthlySpend: 0, incomeEvents: [], expenseEvents: [] },
   };
 }
 

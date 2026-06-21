@@ -100,10 +100,11 @@ export interface HousingLever {
 }
 
 /**
- * A recurring income stream (severance, unemployment, new income) or a
- * single dated income event. Outflows are modeled as OneTimeEvent.
+ * A dated cash flow — recurring (monthly between start/end) or one-off (a single
+ * dated lump). Used for both income and expenses; the sign is decided by which
+ * list it lives in (`levers.incomeEvents` add, `levers.expenseEvents` subtract).
  */
-export interface IncomeEvent {
+export interface FlowEvent {
   id: string;
   label: string;
   /** Monthly amount (for recurring) or the lump amount (for one-off). */
@@ -115,14 +116,8 @@ export interface IncomeEvent {
   endDate?: string;
 }
 
-/** A dated one-time inflow or outflow (asset sale, furniture sale, a big bill). */
-export interface OneTimeEvent {
-  id: string;
-  label: string;
-  date: string; // ISO; applied in this calendar month
-  amount: number; // always positive
-  direction: "inflow" | "outflow";
-}
+/** Back-compat alias: income streams are the same shape as any flow. */
+export type IncomeEvent = FlowEvent;
 
 /**
  * Optional major-asset-sale lever (e.g. a property). Implemented fully in
@@ -150,8 +145,10 @@ export interface Levers {
   housing: HousingLever;
   /** Non-housing target monthly living spend (the V1 "trim", in dollars). */
   targetMonthlySpend: number;
-  incomeEvents: IncomeEvent[];
-  oneTimeEvents: OneTimeEvent[];
+  /** Income streams (salary + severance, unemployment, one-off inflows…). */
+  incomeEvents: FlowEvent[];
+  /** Extra expenses beyond housing + target spend (recurring or one-off). */
+  expenseEvents: FlowEvent[];
   assetSale?: AssetSaleLever;
 }
 
@@ -181,10 +178,10 @@ export interface Scenario {
 
 /** Ledger line-item categories — kept granular so a CSV/JSON export is trivial. */
 export type LedgerCategory =
-  | "income" // recurring income + one-off income
+  | "income" // income streams: salary, severance, one-off inflows
   | "housing"
   | "living" // target monthly spend
-  | "oneTime" // dated one-time outflow
+  | "expense" // added expenses beyond housing/living (recurring or one-off)
   | "assetSale" // net proceeds from a major asset sale
   | "assetCarry" // recurring carrying cost of a held asset (pre-sale)
   | "tax" // scheduled tax/penalty payments coming due
