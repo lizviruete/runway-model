@@ -4,10 +4,25 @@
 // Deliberately a generous, financially healthy persona so the demo reads well
 // and NO real personal financial data lives in the repo. Users replace it with
 // their own accounts and levers.
+//
+// The scenario is anchored to an "as of" date and every event is expressed
+// RELATIVE to it, so the sample always tells the same ~9-month-crunch story no
+// matter when someone opens the app. The app passes the real "today"; tests and
+// SSR use the canonical SAMPLE_AS_OF so the scenario stays deterministic.
 // =============================================================================
 
+import { addMonths, daysInMonth, firstOfMonth, parseISO, toISO } from "./engine/dates";
 import { defaultOngoingCost, defaultTaxTreatment } from "./engine/defaults";
 import type { Account, AccountType, Scenario } from "./engine/types";
+
+/** Canonical anchor for deterministic tests + the SSR/first render. */
+export const SAMPLE_AS_OF = "2026-07-01";
+
+/** Last calendar day of the month containing `iso`. */
+function endOfMonth(iso: string): string {
+  const { y, m } = parseISO(iso);
+  return toISO({ y, m, d: daysInMonth(y, m) });
+}
 
 function account(
   id: string,
@@ -29,20 +44,25 @@ function account(
   };
 }
 
-export function createSampleScenario(): Scenario {
+export function createSampleScenario(asOf: string = SAMPLE_AS_OF): Scenario {
+  const start = asOf;
+  // First-of-month, `k` months out from the anchor — for events that land on a
+  // month boundary (housing change, the asset sale, the unemployment start).
+  const monthStart = (k: number) => firstOfMonth(addMonths(start, k));
+
   return {
     id: "sample",
     name: "Sample User — recent transition",
-    createdDate: "2026-06-18",
-    // 60-month (5-year) horizon. The baseline still craters at ~9 months, but
-    // the long horizon means single-lever improvements resolve to concrete
-    // cash-zero dates, and "beyond horizon" only shows for genuinely
+    createdDate: start,
+    // 60-month (5-year) horizon from the anchor. The baseline still craters at
+    // ~9 months, but the long horizon means single-lever improvements resolve
+    // to concrete cash-zero dates, and "beyond horizon" only shows for genuinely
     // cash-flow-positive scenarios (e.g. the "Landed a new role" preset). The
-    // chart x-axis auto-scales to the meaningful window, so the baseline still
-    // reads as a clean ~12-month view. Modest balances make the waterfall
-    // cascade checking → savings → HYSA → brokerage → Roth → pre-tax IRA before
-    // zero, so both the brokerage cap-gains and pre-tax tax+penalty events show.
-    timeline: { start: "2026-07-01", end: "2031-06-30" },
+    // chart x-axis auto-scales to the meaningful window. Modest balances make
+    // the waterfall cascade checking → savings → HYSA → brokerage → Roth →
+    // pre-tax IRA before zero, so both the brokerage cap-gains and the pre-tax
+    // tax+penalty events show.
+    timeline: { start, end: endOfMonth(addMonths(start, 59)) },
     accounts: [
       account("acc-checking", "Everyday Checking", "checking", 3_000, 1),
       account("acc-savings", "Savings", "savings", 4_000, 2),
@@ -55,8 +75,8 @@ export function createSampleScenario(): Scenario {
     levers: {
       housing: {
         monthlyAmount: 2_800,
-        // Sublet drops housing to $1,400 from month 3 (Sept 2026).
-        change: { date: "2026-09-01", newAmount: 1_400 },
+        // Sublet drops housing to $1,400 from the anchor's month 3.
+        change: { date: monthStart(2), newAmount: 1_400 },
       },
       targetMonthlySpend: 6_500,
       incomeEvents: [
@@ -65,23 +85,23 @@ export function createSampleScenario(): Scenario {
           label: "Severance",
           kind: "recurring",
           amount: 9_000,
-          startDate: "2026-07-01",
-          endDate: "2026-08-31", // ~2 months out
+          startDate: start,
+          endDate: endOfMonth(addMonths(start, 1)), // ~2 months out
         },
         {
           id: "inc-unemployment",
           label: "Unemployment benefit",
           kind: "recurring",
           amount: 3_900,
-          startDate: "2026-09-01",
-          endDate: "2027-02-28", // ~6 months
+          startDate: monthStart(2),
+          endDate: endOfMonth(addMonths(start, 7)), // ~6 months
         },
       ],
       oneTimeEvents: [
         {
           id: "one-asset-sale",
           label: "Asset sale",
-          date: "2026-08-01", // month 2
+          date: monthStart(1), // anchor's month 2
           amount: 8_000,
           direction: "inflow",
         },

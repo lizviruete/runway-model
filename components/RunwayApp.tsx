@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { DEFAULT_CHART_MODE, type ChartMode } from "@/lib/chart";
 import { visibleMonthCount } from "@/lib/chartWindow";
 import { simulate } from "@/lib/engine/simulate";
 import type { Scenario } from "@/lib/engine/types";
 import { PRESETS, type Preset } from "@/lib/presets";
-import { createSampleScenario } from "@/lib/sample";
+import { createSampleScenario, SAMPLE_AS_OF } from "@/lib/sample";
 import { encodeScenario, scenarioFromSearch, shareableUrl } from "@/lib/share";
 import {
   deleteSaved,
@@ -16,38 +17,48 @@ import {
   type SavedScenario,
 } from "@/lib/storage";
 import { AccountList } from "./AccountList";
-import { CashProjectionChart } from "./CashProjectionChart";
-import { DepletionChart } from "./DepletionChart";
 import { HeroMetrics } from "./HeroMetrics";
 import { LedgerView } from "./LedgerView";
 import { Levers } from "./Levers";
+import { RunwayChart } from "./RunwayChart";
+import { TimeAnchor } from "./TimeAnchor";
 import { Toolbar } from "./Toolbar";
 import { Card, SectionTitle } from "./ui";
 
-function todayLabel(): string {
+function todayISO(): string {
   // App-side only; fine to read the clock here (not the pure engine).
   return new Date().toISOString().slice(0, 10);
 }
 
 export function RunwayApp() {
-  // Baseline reference (for the overlay + Δ) is always the pristine sample.
-  const [baselineScenario] = useState<Scenario>(() => createSampleScenario());
+  // SSR + first render use the canonical anchor so the markup is deterministic;
+  // the mount effect re-anchors everything to the real "today".
+  const [today, setToday] = useState<string>(SAMPLE_AS_OF);
+  const [baselineScenario, setBaselineScenario] = useState<Scenario>(() => createSampleScenario());
   const [scenario, setScenario] = useState<Scenario>(() => createSampleScenario());
-  const [encodedBaseline] = useState(() => encodeScenario(createSampleScenario()));
   const [saved, setSaved] = useState<SavedScenario[]>([]);
   const [copied, setCopied] = useState(false);
   const [activePresetId, setActivePresetId] = useState<string | null>("baseline");
+  const [mode, setMode] = useState<ChartMode>(DEFAULT_CHART_MODE);
   const [mounted, setMounted] = useState(false);
 
-  // On mount, hydrate in priority order: a shared `?s=` link > the returning
-  // user's last localStorage session > the default sample. We render the sample
-  // for SSR and sync from these client-only sources after mount (reading them
-  // during render would cause a hydration mismatch), so the post-mount setState
-  // is intentional here. `mounted` is a STATE flag (not a ref) so the persist
+  const encodedBaseline = useMemo(() => encodeScenario(baselineScenario), [baselineScenario]);
+
+  // On mount, anchor the sample to the real "today", then hydrate in priority
+  // order: a shared `?s=` link > the returning user's last localStorage session
+  // > the (today-anchored) sample. We render the deterministic SSR sample first
+  // and sync from these client-only sources after mount (reading them during
+  // render would cause a hydration mismatch), so the post-mount setState is
+  // intentional here. `mounted` is a STATE flag (not a ref) so the persist
   // effect below reliably sees `false` on the first commit and can't clobber
   // storage with the pre-hydration sample.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
+    const now = todayISO();
+    const sample = createSampleScenario(now);
+    setToday(now);
+    setBaselineScenario(sample);
+
     const fromUrl = scenarioFromSearch(window.location.search);
     if (fromUrl) {
       setScenario(fromUrl);
@@ -57,6 +68,8 @@ export function RunwayApp() {
       if (last) {
         setScenario(last);
         setActivePresetId(null);
+      } else {
+        setScenario(sample);
       }
     }
     setSaved(listSaved());
@@ -104,15 +117,16 @@ export function RunwayApp() {
     setCopied(true);
   };
 
-  const onSave = (name: string) => setSaved(saveScenario(name, scenario, todayLabel()));
+  const onSave = (name: string) => setSaved(saveScenario(name, scenario, todayISO()));
   const onLoad = (entry: SavedScenario) => {
     setScenario(entry.scenario);
     setActivePresetId(null);
   };
   const onDelete = (key: string) => setSaved(deleteSaved(key));
   const onReset = () => {
-    // Persist effect clears the `?s=` param since this equals the sample.
-    setScenario(createSampleScenario());
+    // Restore the pristine, today-anchored sample. The persist effect then
+    // clears the `?s=` param since this equals the baseline.
+    setScenario(baselineScenario);
     setActivePresetId("baseline");
     setCopied(false);
   };
@@ -155,44 +169,57 @@ export function RunwayApp() {
         onReset={onReset}
       />
 
-      <HeroMetrics result={result} baseline={baseline} />
-
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-5">
-        {/* Outputs */}
-        <div className="space-y-6 lg:col-span-3">
-          <Card className="p-5">
-            <SectionTitle hint={isEdited ? "Solid = current · dashed = baseline" : "Net liquid cash"}>
-              Cash projection
-            </SectionTitle>
-            <CashProjectionChart
-              current={currentProjection}
-              baseline={baselineProjection}
-              showBaseline={isEdited}
-              cashZeroDate={result.runway.cashZeroDate}
-              startDate={scenario.timeline.start}
-            />
-          </Card>
-
-          <Card className="p-5">
-            <SectionTitle hint="Which account drains, in what order">Account depletion</SectionTitle>
-            <DepletionChart timelines={windowTimelines} projection={currentProjection} />
-          </Card>
-
-          <Card className="p-5">
-            <LedgerView result={result} />
-          </Card>
-        </div>
-
-        {/* Controls */}
-        <div className="space-y-6 lg:col-span-2">
-          <Card className="p-5">
-            <AccountList scenario={scenario} onChange={update} />
-          </Card>
-          <Card className="p-5">
-            <Levers scenario={scenario} onChange={update} />
-          </Card>
-        </div>
+      <div className="mt-4">
+        <TimeAnchor scenario={scenario} onChange={update} today={today} />
       </div>
+
+      <div className="mt-6">
+        <HeroMetrics result={result} baseline={baseline} />
+      </div>
+
+      {/* Merged runway chart — net-liquid line + baseline (Total), or stacked
+          account bands with the authoritative net-liquid line (By account). */}
+      <Card className="mt-6 p-5">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <SectionTitle hint={isEdited ? "Solid = current · dashed = baseline" : "Net liquid over time"}>
+            Runway
+          </SectionTitle>
+          <div className="flex shrink-0 overflow-hidden rounded-lg border border-zinc-200 text-xs">
+            {(["total", "byAccount"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={`px-3 py-1 ${mode === m ? "bg-zinc-900 text-white" : "bg-white text-zinc-600 hover:bg-zinc-50"}`}
+              >
+                {m === "total" ? "Total" : "By account"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <RunwayChart
+          current={currentProjection}
+          baseline={baselineProjection}
+          showBaseline={isEdited}
+          timelines={windowTimelines}
+          cashZeroDate={result.runway.cashZeroDate}
+          startDate={scenario.timeline.start}
+          mode={mode}
+        />
+      </Card>
+
+      {/* Controls — side-by-side on wide screens, stacked on narrow/embed. */}
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card className="p-5">
+          <AccountList scenario={scenario} onChange={update} />
+        </Card>
+        <Card className="p-5">
+          <Levers scenario={scenario} onChange={update} />
+        </Card>
+      </div>
+
+      <Card className="mt-6 p-5">
+        <LedgerView result={result} />
+      </Card>
 
       <footer className="mt-10 text-center text-xs text-zinc-400">
         Sample data is fictional. Not financial advice.
