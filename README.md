@@ -116,7 +116,21 @@ personal numbers → a generic, type-driven account model.
 
 ## Screenshots
 
-![Upward dashboard — hero metrics, cash-projection chart, account-depletion visualization, accounts, and levers](docs/screenshots/dashboard.png)
+**Dashboard** — hero metrics, the Levers panel (Income / Expenses), and the merged runway chart in Total view (net-liquid line).
+
+![Upward dashboard — hero metrics, the Levers panel, and the runway chart in Total view](docs/screenshots/dashboard.png)
+
+**Runway, by account** — the same chart toggled to stacked account-depletion bands, with the authoritative net-liquid line riding on top and the day-precise cash-zero marker.
+
+![The runway chart toggled to the by-account depletion bands](docs/screenshots/chart-by-account.png)
+
+**Accounts & ledger** — the editable account grid (drag to set the depletion/tap order) and the audit-grade monthly ledger, with CSV export.
+
+![The accounts grid and the monthly ledger](docs/screenshots/accounts-ledger.png)
+
+**Compared to baseline** — applying a preset ("Landed a new role") overlays the dashed baseline (your plan carried forward, no changes) and surfaces the Δ vs. baseline in the hero metrics.
+
+![A scenario compared against the dashed baseline, with the vs-baseline delta](docs/screenshots/baseline-overlay.png)
 
 ## Live demo
 
