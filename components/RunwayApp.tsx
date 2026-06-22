@@ -11,9 +11,13 @@ import { encodeScenario, scenarioFromSearch, shareableUrl } from "@/lib/share";
 import {
   deleteSaved,
   listSaved,
+  loadLastBaseline,
   loadLastSession,
+  loadUiState,
+  saveLastBaseline,
   saveLastSession,
   saveScenario,
+  saveUiState,
   type SavedScenario,
 } from "@/lib/storage";
 import { AccountList } from "./AccountList";
@@ -64,19 +68,26 @@ export function RunwayApp() {
     const now = todayISO();
     const sample = createSampleScenario(now);
     setToday(now);
-    setBaselineScenario(sample);
 
     const fromUrl = scenarioFromSearch(window.location.search);
     if (fromUrl) {
+      // A shared link is self-contained: its scenario vs. the default sample.
       setScenario(fromUrl);
+      setBaselineScenario(sample);
       setActivePresetId(null);
+      setShowLibrary(true);
     } else {
       const last = loadLastSession();
       if (last) {
+        // Returning user: restore scenario, its baseline, and the library flag,
+        // so "Save as baseline" and the blank "Start fresh" state both persist.
         setScenario(last);
+        setBaselineScenario(loadLastBaseline() ?? sample);
         setActivePresetId(null);
+        setShowLibrary(loadUiState()?.showLibrary ?? true);
       } else {
         setScenario(sample);
+        setBaselineScenario(sample);
       }
     }
     setSaved(listSaved());
@@ -91,10 +102,12 @@ export function RunwayApp() {
   useEffect(() => {
     if (!mounted) return;
     saveLastSession(scenario);
+    saveLastBaseline(baselineScenario);
+    saveUiState({ showLibrary });
     const path = window.location.origin + window.location.pathname;
     const edited = encodeScenario(scenario) !== encodedBaseline;
     window.history.replaceState(null, "", edited ? shareableUrl(scenario, path) : path);
-  }, [scenario, mounted, encodedBaseline]);
+  }, [scenario, baselineScenario, showLibrary, mounted, encodedBaseline]);
 
   const result = useMemo(() => simulate(scenario), [scenario]);
   const baseline = useMemo(() => simulate(baselineScenario), [baselineScenario]);
@@ -141,9 +154,14 @@ export function RunwayApp() {
     setCopied(false);
   };
   const onStartFresh = () => {
-    // Blank slate — all inputs $0, no baseline to act on yet, so hide the
-    // presets + saved chips until one is established.
-    setScenario(createBlankScenario(today));
+    // Full reset to a blank slate (all inputs $0). The blank scenario is ALSO
+    // made the baseline so `edited` is false — the persist effect then clears
+    // the `?s=` param (and overwrites the last-session with the blank state),
+    // and the "vs baseline" delta reads neutral instead of comparing the blank
+    // against the old sample. No baseline to act on yet, so hide presets/saved.
+    const blank = createBlankScenario(today);
+    setBaselineScenario(blank);
+    setScenario(blank);
     setActivePresetId(null);
     setShowLibrary(false);
     setCopied(false);

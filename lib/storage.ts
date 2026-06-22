@@ -5,6 +5,13 @@ import type { Scenario } from "./engine/types";
 
 const SAVED_KEY = "runway:saved";
 const LAST_KEY = "runway:last";
+const BASELINE_KEY = "runway:baseline";
+const UI_KEY = "runway:ui";
+
+/** Small slice of UI state worth surviving a reload (e.g. the blank fresh state). */
+export interface UiState {
+  showLibrary: boolean;
+}
 
 export interface SavedScenario {
   key: string; // storage key (distinct from scenario.id)
@@ -71,4 +78,23 @@ export function saveLastSession(scenario: Scenario): void {
 
 export function loadLastSession(): Scenario | null {
   return read<Scenario | null>(LAST_KEY, null);
+}
+
+/** The reference baseline is persisted too, so "Save as baseline" and the blank
+ *  "Start fresh" state survive a reload (otherwise the baseline would snap back
+ *  to the sample on mount and the session would read as edited again). */
+export function saveLastBaseline(scenario: Scenario): void {
+  write(BASELINE_KEY, scenario);
+}
+
+export function loadLastBaseline(): Scenario | null {
+  return read<Scenario | null>(BASELINE_KEY, null);
+}
+
+export function saveUiState(ui: UiState): void {
+  write(UI_KEY, ui);
+}
+
+export function loadUiState(): UiState | null {
+  return read<UiState | null>(UI_KEY, null);
 }
