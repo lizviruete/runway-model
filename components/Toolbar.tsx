@@ -6,6 +6,8 @@ import type { SavedScenario } from "@/lib/storage";
 
 interface Props {
   presets: Preset[];
+  /** Hide the presets + saved chips (e.g. in the blank "Start fresh" state). */
+  showLibrary: boolean;
   activePresetId: string | null;
   onApplyPreset: (preset: Preset) => void;
   onCopyLink: () => void;
@@ -21,6 +23,7 @@ interface Props {
 
 export function Toolbar({
   presets,
+  showLibrary,
   activePresetId,
   onApplyPreset,
   onCopyLink,
@@ -48,24 +51,26 @@ export function Toolbar({
 
   return (
     <div className="mb-6 space-y-3">
-      {/* preset chips */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">Presets</span>
-        {presets.map((p) => (
-          <button
-            key={p.id}
-            onClick={() => onApplyPreset(p)}
-            title={p.description}
-            className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-              activePresetId === p.id
-                ? "border-zinc-900 bg-zinc-900 text-white"
-                : "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-400"
-            }`}
-          >
-            {p.name}
-          </button>
-        ))}
-      </div>
+      {/* preset chips — hidden in the blank Start-fresh state */}
+      {showLibrary ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">Presets</span>
+          {presets.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => onApplyPreset(p)}
+              title={p.description}
+              className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                activePresetId === p.id
+                  ? "border-zinc-900 bg-zinc-900 text-white"
+                  : "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-400"
+              }`}
+            >
+              {p.name}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {/* actions */}
       <div className="flex flex-wrap items-center gap-2">
@@ -123,7 +128,7 @@ export function Toolbar({
           Save as baseline
         </button>
 
-        {saved.length > 0 ? (
+        {showLibrary && saved.length > 0 ? (
           <div className="relative">
             <button
               onClick={() => setShowSaved((s) => !s)}

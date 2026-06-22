@@ -45,6 +45,9 @@ export function RunwayApp() {
   const [activePresetId, setActivePresetId] = useState<string | null>("baseline");
   const [mode, setMode] = useState<ChartMode>(DEFAULT_CHART_MODE);
   const [mounted, setMounted] = useState(false);
+  // Presets + saved chips act on a baseline; hidden in the blank "Start fresh"
+  // state (nothing to act on yet) until a baseline is established.
+  const [showLibrary, setShowLibrary] = useState(true);
 
   const encodedBaseline = useMemo(() => encodeScenario(baselineScenario), [baselineScenario]);
 
@@ -134,18 +137,23 @@ export function RunwayApp() {
     setBaselineScenario(sample);
     setScenario(sample);
     setActivePresetId("baseline");
+    setShowLibrary(true);
     setCopied(false);
   };
   const onStartFresh = () => {
-    // Blank slate — all inputs $0. Baseline stays the sample reference.
+    // Blank slate — all inputs $0, no baseline to act on yet, so hide the
+    // presets + saved chips until one is established.
     setScenario(createBlankScenario(today));
     setActivePresetId(null);
+    setShowLibrary(false);
     setCopied(false);
   };
   const onSaveAsBaseline = () => {
-    // Lock the current inputs as the reference for the dashed line + Δ.
+    // Lock the current inputs as the reference for the dashed line + Δ — now
+    // there's a baseline, so the presets come back.
     setBaselineScenario(scenario);
     setActivePresetId("baseline");
+    setShowLibrary(true);
     setCopied(false);
   };
 
@@ -180,6 +188,7 @@ export function RunwayApp() {
 
       <Toolbar
         presets={PRESETS}
+        showLibrary={showLibrary}
         activePresetId={activePresetId}
         onApplyPreset={applyPreset}
         onCopyLink={copyLink}
