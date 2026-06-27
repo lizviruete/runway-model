@@ -6,6 +6,7 @@ import type { AssetSaleLever, FlowEvent, Levers as LeversType, Scenario } from "
 import { formatCurrency, formatMonthYear } from "@/lib/format";
 import { newExpenseId, newIncomeId } from "@/lib/scenario";
 import { SALARY_ID } from "@/lib/sample";
+import { targetSpendHint } from "@/lib/spendDelta";
 import { FlowModal, type FlowDraft } from "./FlowModal";
 import { NumberField } from "./ui";
 
@@ -14,9 +15,15 @@ interface Props {
   onChange: (next: Scenario) => void;
 }
 
+interface LeversProps extends Props {
+  /** The active baseline's non-housing spend — the working anchor the runway Δ
+   *  and chart dashed overlay use (not the static scenario.baselineMonthlySpend). */
+  baselineSpend: number;
+}
+
 type ModalState = { noun: "income" | "expense"; editing: FlowEvent | null };
 
-export function Levers({ scenario, onChange }: Props) {
+export function Levers({ scenario, onChange, baselineSpend }: LeversProps) {
   const L = scenario.levers;
   const setLevers = (patch: Partial<LeversType>) =>
     onChange({ ...scenario, levers: { ...L, ...patch } });
@@ -26,9 +33,6 @@ export function Levers({ scenario, onChange }: Props) {
   const salary = L.incomeEvents.find((e) => e.id === SALARY_ID);
   const otherIncome = L.incomeEvents.filter((e) => e.id !== SALARY_ID);
   const expenses = L.expenseEvents ?? [];
-
-  const baseline = scenario.baselineMonthlySpend ?? L.targetMonthlySpend;
-  const spendDelta = L.targetMonthlySpend - baseline;
 
   const setSalary = (amount: number) =>
     setLevers({ incomeEvents: L.incomeEvents.map((e) => (e.id === SALARY_ID ? { ...e, amount } : e)) });
@@ -90,11 +94,7 @@ export function Levers({ scenario, onChange }: Props) {
             label="Target monthly spend (non-housing)"
             value={L.targetMonthlySpend}
             onChange={(v) => setLevers({ targetMonthlySpend: v })}
-            hint={
-              spendDelta === 0
-                ? "Same as baseline"
-                : `${formatCurrency(spendDelta, { sign: true })}/mo vs. baseline (${formatCurrency(baseline)})`
-            }
+            hint={targetSpendHint(L.targetMonthlySpend, baselineSpend)}
           />
         </div>
 

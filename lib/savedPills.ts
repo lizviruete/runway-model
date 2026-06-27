@@ -24,7 +24,13 @@ export function buildSavedPills(
 ): SavedPill[] {
   const pills: SavedPill[] = [];
   if (savedBaseline) {
-    pills.push({ kind: "baseline", key: "baseline", label: "Baseline", date: savedBaseline.savedAt });
+    pills.push({
+      kind: "baseline",
+      key: "baseline",
+      label: "Baseline",
+      date: savedBaseline.savedAt,
+      notes: savedBaseline.notes,
+    });
   }
   for (const s of saved) {
     pills.push({ kind: "scenario", key: s.key, label: s.name, date: s.savedAt, notes: s.notes });

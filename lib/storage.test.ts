@@ -87,6 +87,15 @@ describe("saved baseline — the dated record behind the Baseline pill", () => {
     expect(loaded).toEqual({ scenario, savedAt: "2026-06-27" });
   });
 
+  it("round-trips an optional note, and omits it when blank", () => {
+    const scenario = createBlankScenario("2026-06-01");
+    setSavedBaseline(scenario, "2026-06-27", "post-sublet plan");
+    expect(getSavedBaseline()).toEqual({ scenario, savedAt: "2026-06-27", notes: "post-sublet plan" });
+
+    setSavedBaseline(scenario, "2026-06-28", "   ");
+    expect(getSavedBaseline()?.notes).toBeUndefined();
+  });
+
   it("clears the saved baseline without touching the working anchor", () => {
     const scenario = createBlankScenario("2026-06-01");
     setSavedBaseline(scenario, "2026-06-27");

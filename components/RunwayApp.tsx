@@ -185,15 +185,16 @@ export function RunwayApp() {
     setExampleMode((m) => nextExampleMode(m, "startFresh"));
     setCopied(false);
   };
-  const onSaveAsBaseline = () => {
+  const onSaveAsBaseline = (notes: string) => {
     // Lock the current inputs as the reference for the dashed line + Δ (the
     // working `runway:baseline` anchor), AND store a dated saved-baseline record
-    // (`runway:savedBaseline`) that backs the Baseline pill. The user's own
-    // baseline (not the built-in chip) — exit example mode.
+    // (`runway:savedBaseline`) with an optional note, backing the Baseline pill.
+    // Replaces the single existing baseline. Exit example mode.
     const savedAt = todayISO();
+    const trimmed = notes.trim() || undefined;
     setBaselineScenario(scenario);
-    setSavedBaseline(scenario, savedAt);
-    setSavedBaselineState({ scenario, savedAt });
+    setSavedBaseline(scenario, savedAt, trimmed);
+    setSavedBaselineState({ scenario, savedAt, notes: trimmed });
     setActivePresetId(null);
     setExampleMode((m) => nextExampleMode(m, "saveAsBaseline"));
     setCopied(false);
@@ -284,7 +285,11 @@ export function RunwayApp() {
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(360px,440px)_minmax(0,1fr)]">
         {/* Levers — left */}
         <Card className="order-2 flex h-[580px] flex-col p-5 lg:order-none">
-          <Levers scenario={scenario} onChange={update} />
+          <Levers
+            scenario={scenario}
+            onChange={update}
+            baselineSpend={baselineScenario.levers.targetMonthlySpend}
+          />
         </Card>
 
         {/* Merged runway chart — right; fills its cell. Net-liquid line +

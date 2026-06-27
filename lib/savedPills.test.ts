@@ -23,6 +23,11 @@ describe("buildSavedPills", () => {
     expect(pills[0]).toMatchObject({ kind: "baseline", key: "baseline", label: "Baseline", date: "2026-06-27" });
   });
 
+  it("carries the baseline's optional note onto its pill", () => {
+    const withNote = buildSavedPills({ ...savedBaseline, notes: "post-sublet plan" }, []);
+    expect(withNote[0].notes).toBe("post-sublet plan");
+  });
+
   it("renders one pill per saved scenario, carrying its date + notes", () => {
     const pills = buildSavedPills(null, savedScenarios);
     expect(pills.map((p) => p.kind)).toEqual(["scenario", "scenario"]);

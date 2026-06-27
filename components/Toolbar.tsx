@@ -14,7 +14,7 @@ interface Props {
   onCopyLink: () => void;
   copied: boolean;
   onSave: (name: string, notes: string) => void;
-  onSaveAsBaseline: () => void;
+  onSaveAsBaseline: (notes: string) => void;
   saved: SavedScenario[];
   savedBaseline: SavedBaseline | null;
   onLoad: (entry: SavedScenario) => void;
@@ -46,6 +46,8 @@ export function Toolbar({
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
   const [notes, setNotes] = useState("");
+  const [savingBaseline, setSavingBaseline] = useState(false);
+  const [baselineNotes, setBaselineNotes] = useState("");
 
   const commitSave = () => {
     const trimmed = name.trim();
@@ -54,6 +56,14 @@ export function Toolbar({
     setNotes("");
     setSaving(false);
   };
+
+  const commitSaveBaseline = () => {
+    onSaveAsBaseline(baselineNotes.trim());
+    setBaselineNotes("");
+    setSavingBaseline(false);
+  };
+
+  const baselineLabel = savedBaseline ? "Save as new baseline" : "Save as baseline";
 
   const pills = buildSavedPills(savedBaseline, saved);
 
@@ -128,13 +138,39 @@ export function Toolbar({
           </button>
         )}
 
-        <button
-          onClick={onSaveAsBaseline}
-          title="Lock the current inputs as the reference the dashed line and Δ compare against"
-          className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:border-zinc-400"
-        >
-          Save as baseline
-        </button>
+        {savingBaseline ? (
+          <span className="flex items-center gap-1">
+            <input
+              data-testid="baseline-notes-input"
+              autoFocus
+              value={baselineNotes}
+              onChange={(e) => setBaselineNotes(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitSaveBaseline();
+                if (e.key === "Escape") setSavingBaseline(false);
+              }}
+              placeholder="Notes (optional)"
+              className="w-48 rounded-lg border border-zinc-300 px-2 py-1.5 text-xs text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-zinc-500"
+            />
+            <button
+              onClick={commitSaveBaseline}
+              className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white"
+            >
+              Save
+            </button>
+            <button onClick={() => setSavingBaseline(false)} className="px-1 text-xs text-zinc-400">
+              ✕
+            </button>
+          </span>
+        ) : (
+          <button
+            onClick={() => setSavingBaseline(true)}
+            title="Lock the current inputs as the reference the dashed line and Δ compare against"
+            className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:border-zinc-400"
+          >
+            {baselineLabel}
+          </button>
+        )}
 
         <div className="ml-auto flex items-center gap-3">
           <button onClick={onStartFresh} className="text-xs text-zinc-400 hover:text-zinc-600">
