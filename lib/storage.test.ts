@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createBlankScenario, createSampleScenario } from "./sample";
 import {
+  clearSavedBaseline,
+  getSavedBaseline,
   loadLastBaseline,
   loadLastSession,
   persistWorkingState,
   saveLastBaseline,
   saveLastSession,
+  setSavedBaseline,
 } from "./storage";
 
 // A minimal in-memory localStorage so the SSR-guarded storage helpers run in the
@@ -62,5 +65,36 @@ describe("persistWorkingState — example mode is ephemeral", () => {
     persistWorkingState(sample, blank, false);
     expect(loadLastSession()).toEqual(sample);
     expect(loadLastBaseline()).toEqual(blank);
+  });
+});
+
+describe("saved baseline — the dated record behind the Baseline pill", () => {
+  beforeEach(() => {
+    vi.stubGlobal("window", { localStorage: fakeStorage() });
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("round-trips the scenario + savedAt, and is null when nothing is saved", () => {
+    expect(getSavedBaseline()).toBeNull();
+
+    const scenario = createBlankScenario("2026-06-01");
+    scenario.name = "My baseline";
+    setSavedBaseline(scenario, "2026-06-27");
+
+    const loaded = getSavedBaseline();
+    expect(loaded).toEqual({ scenario, savedAt: "2026-06-27" });
+  });
+
+  it("clears the saved baseline without touching the working anchor", () => {
+    const scenario = createBlankScenario("2026-06-01");
+    setSavedBaseline(scenario, "2026-06-27");
+    saveLastBaseline(scenario); // the working `runway:baseline` anchor
+
+    clearSavedBaseline();
+    expect(getSavedBaseline()).toBeNull();
+    // The working anchor lingers, so VS-BASELINE stays renderable.
+    expect(loadLastBaseline()).toEqual(scenario);
   });
 });
