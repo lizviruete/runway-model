@@ -5,6 +5,7 @@ import { DEFAULT_CHART_MODE, type ChartMode } from "@/lib/chart";
 import { visibleMonthCount } from "@/lib/chartWindow";
 import { simulate } from "@/lib/engine/simulate";
 import type { Scenario } from "@/lib/engine/types";
+import { chooseInitSource, nextExampleMode } from "@/lib/exampleMode";
 import { PRESETS, type Preset } from "@/lib/presets";
 import { createBlankScenario, createSampleScenario, SAMPLE_AS_OF } from "@/lib/sample";
 import { encodeScenario, scenarioFromSearch, shareableUrl } from "@/lib/share";
@@ -13,11 +14,8 @@ import {
   listSaved,
   loadLastBaseline,
   loadLastSession,
-  loadUiState,
-  saveLastBaseline,
-  saveLastSession,
+  persistWorkingState,
   saveScenario,
-  saveUiState,
   type SavedScenario,
 } from "@/lib/storage";
 import { AccountList } from "./AccountList";
@@ -40,55 +38,60 @@ const BASELINE_HELP =
 
 export function RunwayApp() {
   // SSR + first render use the canonical anchor so the markup is deterministic;
-  // the mount effect re-anchors everything to the real "today".
+  // the mount effect re-anchors everything to the real "today". The default is
+  // the empty canvas (a blank scenario), so a first-time visitor lands on a
+  // clean slate with no sample data and no example chips.
   const [today, setToday] = useState<string>(SAMPLE_AS_OF);
-  const [baselineScenario, setBaselineScenario] = useState<Scenario>(() => createSampleScenario());
-  const [scenario, setScenario] = useState<Scenario>(() => createSampleScenario());
+  const [baselineScenario, setBaselineScenario] = useState<Scenario>(() => createBlankScenario());
+  const [scenario, setScenario] = useState<Scenario>(() => createBlankScenario());
   const [saved, setSaved] = useState<SavedScenario[]>([]);
   const [copied, setCopied] = useState(false);
-  const [activePresetId, setActivePresetId] = useState<string | null>("baseline");
+  const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const [mode, setMode] = useState<ChartMode>(DEFAULT_CHART_MODE);
   const [mounted, setMounted] = useState(false);
-  // Presets + saved chips act on a baseline; hidden in the blank "Start fresh"
-  // state (nothing to act on yet) until a baseline is established.
-  const [showLibrary, setShowLibrary] = useState(true);
+  // Example mode (the fictional sample + the built-in example preset chips) is a
+  // distinct, in-session state, reached via "See an Example" or `?example=1`. It
+  // is never persisted — a returning user always restores their own data, with
+  // no chips. Off by default → the empty canvas.
+  const [exampleMode, setExampleMode] = useState(false);
 
   const encodedBaseline = useMemo(() => encodeScenario(baselineScenario), [baselineScenario]);
 
-  // On mount, anchor the sample to the real "today", then hydrate in priority
-  // order: a shared `?s=` link > the returning user's last localStorage session
-  // > the (today-anchored) sample. We render the deterministic SSR sample first
-  // and sync from these client-only sources after mount (reading them during
-  // render would cause a hydration mismatch), so the post-mount setState is
-  // intentional here. `mounted` is a STATE flag (not a ref) so the persist
-  // effect below reliably sees `false` on the first commit and can't clobber
-  // storage with the pre-hydration sample.
+  // On mount, anchor the sample to the real "today", then hydrate by source in
+  // strict precedence (see `chooseInitSource`): a shared `?s=` link > `?example=1`
+  // > the returning user's last localStorage session > a blank canvas. We render
+  // the deterministic SSR blank first and sync from these client-only sources
+  // after mount (reading them during render would cause a hydration mismatch),
+  // so the post-mount setState is intentional here. `mounted` is a STATE flag
+  // (not a ref) so the persist effect below reliably sees `false` on the first
+  // commit and can't clobber storage with the pre-hydration blank.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const now = todayISO();
     const sample = createSampleScenario(now);
+    const blank = createBlankScenario(now);
     setToday(now);
 
-    const fromUrl = scenarioFromSearch(window.location.search);
-    if (fromUrl) {
+    const last = loadLastSession();
+    const source = chooseInitSource(window.location.search, !!last);
+    if (source === "url") {
       // A shared link is self-contained: its scenario vs. the default sample.
-      setScenario(fromUrl);
+      setScenario(scenarioFromSearch(window.location.search) ?? sample);
       setBaselineScenario(sample);
-      setActivePresetId(null);
-      setShowLibrary(true);
+    } else if (source === "example") {
+      // Deep-link straight into example mode: sample + example chips.
+      setScenario(sample);
+      setBaselineScenario(sample);
+      setExampleMode(true);
+    } else if (source === "restore" && last) {
+      // Returning user: restore scenario + its baseline (so "Save as baseline"
+      // and the blank "Start fresh" state persist). Never any example chips.
+      setScenario(last);
+      setBaselineScenario(loadLastBaseline() ?? blank);
     } else {
-      const last = loadLastSession();
-      if (last) {
-        // Returning user: restore scenario, its baseline, and the library flag,
-        // so "Save as baseline" and the blank "Start fresh" state both persist.
-        setScenario(last);
-        setBaselineScenario(loadLastBaseline() ?? sample);
-        setActivePresetId(null);
-        setShowLibrary(loadUiState()?.showLibrary ?? true);
-      } else {
-        setScenario(sample);
-        setBaselineScenario(sample);
-      }
+      // First-time visitor: the empty canvas.
+      setScenario(blank);
+      setBaselineScenario(blank);
     }
     setSaved(listSaved());
     setMounted(true);
@@ -101,13 +104,14 @@ export function RunwayApp() {
   // the first-visit / embed URL and a post-reset URL stay clean.
   useEffect(() => {
     if (!mounted) return;
-    saveLastSession(scenario);
-    saveLastBaseline(baselineScenario);
-    saveUiState({ showLibrary });
+    // While previewing an example, suppress writes to the user's saved session +
+    // baseline — the example data is in-memory only. The URL still reflects the
+    // current scenario (shareable), but never the user's persisted storage.
+    persistWorkingState(scenario, baselineScenario, exampleMode);
     const path = window.location.origin + window.location.pathname;
     const edited = encodeScenario(scenario) !== encodedBaseline;
     window.history.replaceState(null, "", edited ? shareableUrl(scenario, path) : path);
-  }, [scenario, baselineScenario, showLibrary, mounted, encodedBaseline]);
+  }, [scenario, baselineScenario, exampleMode, mounted, encodedBaseline]);
 
   const result = useMemo(() => simulate(scenario), [scenario]);
   const baseline = useMemo(() => simulate(baselineScenario), [baselineScenario]);
@@ -115,14 +119,19 @@ export function RunwayApp() {
   const isEdited = encodeScenario(scenario) !== encodedBaseline;
 
   const update = (next: Scenario) => {
+    // A manual edit is a soft exit from example mode — keep the numbers as the
+    // user's own working scenario, but drop the example chips.
     setScenario(next);
     setActivePresetId(null);
+    setExampleMode((m) => nextExampleMode(m, "manualEdit"));
     setCopied(false);
   };
 
   const applyPreset = (preset: Preset) => {
+    // Selecting an example chip switches scenarios but STAYS in example mode.
     setScenario(preset.apply(baselineScenario));
     setActivePresetId(preset.id);
+    setExampleMode((m) => nextExampleMode(m, "applyPreset"));
     setCopied(false);
   };
 
@@ -140,17 +149,21 @@ export function RunwayApp() {
   const onSave = (name: string, notes: string) =>
     setSaved(saveScenario(name, scenario, todayISO(), notes));
   const onLoad = (entry: SavedScenario) => {
+    // Loading a saved scenario is the user's own data — exit example mode.
     setScenario(entry.scenario);
     setActivePresetId(null);
+    setExampleMode((m) => nextExampleMode(m, "loadSaved"));
+    setCopied(false);
   };
   const onDelete = (key: string) => setSaved(deleteSaved(key));
-  const onReset = () => {
-    // Restore the pristine, today-anchored sample.
+  const onSeeExample = () => {
+    // Enter example mode: load the pristine, today-anchored sample as both the
+    // scenario and its baseline, and reveal the example preset chips.
     const sample = createSampleScenario(today);
     setBaselineScenario(sample);
     setScenario(sample);
-    setActivePresetId("baseline");
-    setShowLibrary(true);
+    setActivePresetId(null);
+    setExampleMode((m) => nextExampleMode(m, "seeExample"));
     setCopied(false);
   };
   const onStartFresh = () => {
@@ -158,26 +171,28 @@ export function RunwayApp() {
     // made the baseline so `edited` is false — the persist effect then clears
     // the `?s=` param (and overwrites the last-session with the blank state),
     // and the "vs baseline" delta reads neutral instead of comparing the blank
-    // against the old sample. No baseline to act on yet, so hide presets/saved.
+    // against the old sample. Hard exit from example mode.
     const blank = createBlankScenario(today);
     setBaselineScenario(blank);
     setScenario(blank);
     setActivePresetId(null);
-    setShowLibrary(false);
+    setExampleMode((m) => nextExampleMode(m, "startFresh"));
     setCopied(false);
   };
   const onSaveAsBaseline = () => {
-    // Lock the current inputs as the reference for the dashed line + Δ — now
-    // there's a baseline, so the presets come back.
+    // Lock the current inputs as the reference for the dashed line + Δ. This is
+    // the user's own baseline (not the built-in chip) — exit example mode.
     setBaselineScenario(scenario);
-    setActivePresetId("baseline");
-    setShowLibrary(true);
+    setActivePresetId(null);
+    setExampleMode((m) => nextExampleMode(m, "saveAsBaseline"));
     setCopied(false);
   };
 
   const activeScenarioName = activePresetId
     ? (PRESETS.find((p) => p.id === activePresetId)?.name ?? "Custom scenario")
-    : "Custom scenario";
+    : exampleMode
+      ? "Example scenario"
+      : "Custom scenario";
 
   // Auto-scale the chart x-axis to the meaningful window.
   const windowMonths = useMemo(
@@ -200,13 +215,13 @@ export function RunwayApp() {
         </p>
         <p className="mt-1 text-sm text-zinc-500">
           How long does your cash last — and how does that change if you pull any single lever?
-          Pick a preset, adjust the levers, then save or share a link.
+          Enter your accounts and levers, then save or share a link — or see an example to explore.
         </p>
       </header>
 
       <Toolbar
         presets={PRESETS}
-        showLibrary={showLibrary}
+        exampleMode={exampleMode}
         activePresetId={activePresetId}
         onApplyPreset={applyPreset}
         onCopyLink={copyLink}
@@ -216,7 +231,7 @@ export function RunwayApp() {
         saved={saved}
         onLoad={onLoad}
         onDelete={onDelete}
-        onReset={onReset}
+        onSeeExample={onSeeExample}
         onStartFresh={onStartFresh}
       />
 

@@ -6,8 +6,8 @@ import type { SavedScenario } from "@/lib/storage";
 
 interface Props {
   presets: Preset[];
-  /** Hide the presets + saved chips (e.g. in the blank "Start fresh" state). */
-  showLibrary: boolean;
+  /** Show the built-in example preset chips — only true in example mode. */
+  exampleMode: boolean;
   activePresetId: string | null;
   onApplyPreset: (preset: Preset) => void;
   onCopyLink: () => void;
@@ -17,13 +17,13 @@ interface Props {
   saved: SavedScenario[];
   onLoad: (entry: SavedScenario) => void;
   onDelete: (key: string) => void;
-  onReset: () => void;
+  onSeeExample: () => void;
   onStartFresh: () => void;
 }
 
 export function Toolbar({
   presets,
-  showLibrary,
+  exampleMode,
   activePresetId,
   onApplyPreset,
   onCopyLink,
@@ -33,7 +33,7 @@ export function Toolbar({
   saved,
   onLoad,
   onDelete,
-  onReset,
+  onSeeExample,
   onStartFresh,
 }: Props) {
   const [saving, setSaving] = useState(false);
@@ -51,10 +51,10 @@ export function Toolbar({
 
   return (
     <div className="mb-6 space-y-3">
-      {/* preset chips — hidden in the blank Start-fresh state */}
-      {showLibrary ? (
+      {/* example preset chips — only in example mode ("See an Example") */}
+      {exampleMode ? (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">Presets</span>
+          <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">Examples</span>
           {presets.map((p) => (
             <button
               key={p.id}
@@ -128,7 +128,7 @@ export function Toolbar({
           Save as baseline
         </button>
 
-        {showLibrary && saved.length > 0 ? (
+        {saved.length > 0 ? (
           <div className="relative">
             <button
               onClick={() => setShowSaved((s) => !s)}
@@ -172,8 +172,8 @@ export function Toolbar({
             Start fresh
           </button>
           <span className="text-zinc-300">·</span>
-          <button onClick={onReset} className="text-xs text-zinc-400 hover:text-zinc-600">
-            Reset to sample
+          <button onClick={onSeeExample} className="text-xs text-zinc-400 hover:text-zinc-600">
+            See an Example
           </button>
         </div>
       </div>

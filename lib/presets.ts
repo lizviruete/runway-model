@@ -77,12 +77,6 @@ function surviveToYearEnd(base: Scenario): Scenario {
 
 export const PRESETS: Preset[] = [
   {
-    id: "baseline",
-    name: "Baseline",
-    description: "The starting scenario, unchanged — cash draws down to zero.",
-    apply: (base) => base,
-  },
-  {
     id: "zero-housing",
     name: "Zero housing cost",
     description: "Housing drops to $0 (e.g. move in with family).",
