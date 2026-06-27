@@ -47,7 +47,7 @@ export function AccountList({ scenario, onChange }: Props) {
     .reduce((s, a) => s + a.balance, 0);
 
   return (
-    <section>
+    <section data-testid="accounts">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex flex-wrap items-baseline gap-x-3">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Accounts</h2>
@@ -56,6 +56,7 @@ export function AccountList({ scenario, onChange }: Props) {
           </span>
         </div>
         <button
+          data-testid="account-add"
           onClick={addAccount}
           className="shrink-0 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-600 hover:border-zinc-400 hover:text-zinc-800"
         >

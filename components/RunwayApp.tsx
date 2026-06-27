@@ -5,11 +5,13 @@ import { DEFAULT_CHART_MODE, type ChartMode } from "@/lib/chart";
 import { visibleMonthCount } from "@/lib/chartWindow";
 import { simulate } from "@/lib/engine/simulate";
 import type { Scenario } from "@/lib/engine/types";
-import { chooseInitSource, nextExampleMode } from "@/lib/exampleMode";
-import { PRESETS, type Preset } from "@/lib/presets";
+import { isCleanCapture } from "@/lib/captureMode";
+import { chooseInitSource, nextExampleMode, presetIdFromSearch } from "@/lib/exampleMode";
+import { getPreset, PRESETS, type Preset } from "@/lib/presets";
 import { createBlankScenario, createSampleScenario, SAMPLE_AS_OF } from "@/lib/sample";
 import { encodeScenario, scenarioFromSearch, shareableUrl } from "@/lib/share";
 import {
+  clearAllSavedData,
   clearSavedBaseline,
   deleteSaved,
   getSavedBaseline,
@@ -54,6 +56,9 @@ export function RunwayApp() {
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const [mode, setMode] = useState<ChartMode>(DEFAULT_CHART_MODE);
   const [mounted, setMounted] = useState(false);
+  // `?chrome=min` clean-capture mode for portfolio stills (hide footer + sub-copy,
+  // freeze animations). Read from the URL on mount; orthogonal to the source.
+  const [chromeMin, setChromeMin] = useState(false);
   // Example mode (the fictional sample + the built-in example preset chips) is a
   // distinct, in-session state, reached via "See an Example" or `?example=1`. It
   // is never persisted — a returning user always restores their own data, with
@@ -63,26 +68,44 @@ export function RunwayApp() {
   const encodedBaseline = useMemo(() => encodeScenario(baselineScenario), [baselineScenario]);
 
   // On mount, anchor the sample to the real "today", then hydrate by source in
-  // strict precedence (see `chooseInitSource`): a shared `?s=` link > `?example=1`
-  // > the returning user's last localStorage session > a blank canvas. We render
-  // the deterministic SSR blank first and sync from these client-only sources
-  // after mount (reading them during render would cause a hydration mismatch),
-  // so the post-mount setState is intentional here. `mounted` is a STATE flag
-  // (not a ref) so the persist effect below reliably sees `false` on the first
-  // commit and can't clobber storage with the pre-hydration blank.
+  // strict precedence (see `chooseInitSource`): `?reset=1` (test-only wipe) >
+  // `?s=` > a valid `?preset=<id>` > `?example=1` > the returning user's last
+  // localStorage session > a blank canvas. We render the deterministic SSR blank
+  // first and sync from these client-only sources after mount (reading them
+  // during render would cause a hydration mismatch), so the post-mount setState
+  // is intentional here. `mounted` is a STATE flag (not a ref) so the persist
+  // effect below reliably sees `false` on the first commit and can't clobber
+  // storage with the pre-hydration blank.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const now = todayISO();
+    const search = window.location.search;
     const sample = createSampleScenario(now);
     const blank = createBlankScenario(now);
     setToday(now);
+    setChromeMin(isCleanCapture(search));
 
     const last = loadLastSession();
-    const source = chooseInitSource(window.location.search, !!last);
-    if (source === "url") {
+    const source = chooseInitSource(search, !!last);
+    if (source === "reset") {
+      // Test-only full wipe: clear every persisted key, then the empty canvas.
+      // The `?reset=1` param strips itself below (blank == baseline → clean path).
+      clearAllSavedData();
+      setScenario(blank);
+      setBaselineScenario(blank);
+    } else if (source === "url") {
       // A shared link is self-contained: its scenario vs. the default sample.
-      setScenario(scenarioFromSearch(window.location.search) ?? sample);
+      setScenario(scenarioFromSearch(search) ?? sample);
       setBaselineScenario(sample);
+    } else if (source === "preset") {
+      // Deep-link a specific example preset: sample baseline + that preset applied,
+      // in example mode with its chip active.
+      const id = presetIdFromSearch(search);
+      const preset = id ? getPreset(id) : undefined;
+      setScenario(preset ? preset.apply(sample) : sample);
+      setBaselineScenario(sample);
+      setExampleMode(true);
+      setActivePresetId(id);
     } else if (source === "example") {
       // Deep-link straight into example mode: sample + example chips.
       setScenario(sample);
@@ -98,8 +121,8 @@ export function RunwayApp() {
       setScenario(blank);
       setBaselineScenario(blank);
     }
-    setSaved(listSaved());
-    setSavedBaselineState(getSavedBaseline());
+    setSaved(source === "reset" ? [] : listSaved());
+    setSavedBaselineState(source === "reset" ? null : getSavedBaseline());
     setMounted(true);
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
@@ -237,13 +260,15 @@ export function RunwayApp() {
   }));
 
   return (
-    <div className="mx-auto max-w-[1560px] px-4 py-8 sm:px-6">
+    <div
+      className={`mx-auto max-w-[1560px] px-4 py-8 sm:px-6${chromeMin ? " chrome-min" : ""}`}
+    >
       <header className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Upward</h1>
         <p className="mt-1 text-sm font-medium text-zinc-700">
           See where you stand. Build your runway. Steer it upward.
         </p>
-        <p className="mt-1 text-sm text-zinc-500">
+        <p data-chrome className="mt-1 text-sm text-zinc-500">
           How long does your cash last — and how does that change if you pull any single lever?
           Enter your accounts and levers, then save or share a link — or see an example to explore.
         </p>
@@ -302,6 +327,7 @@ export function RunwayApp() {
               {(["total", "byAccount"] as const).map((m) => (
                 <button
                   key={m}
+                  data-testid={m === "total" ? "chart-mode-total" : "chart-mode-by-account"}
                   onClick={() => setMode(m)}
                   className={`px-3 py-1 ${mode === m ? "bg-zinc-900 text-white" : "bg-white text-zinc-600 hover:bg-zinc-50"}`}
                 >
@@ -313,17 +339,19 @@ export function RunwayApp() {
           <p className="mb-2 cursor-help text-xs text-zinc-400" title={BASELINE_HELP}>
             {BASELINE_LABEL}
           </p>
-          <RunwayChart
-            current={currentProjection}
-            baseline={baselineProjection}
-            showBaseline={isEdited}
-            timelines={windowTimelines}
-            cashZeroDate={result.runway.cashZeroDate}
-            startDate={scenario.timeline.start}
-            mode={mode}
-            baselineLabel={BASELINE_LABEL}
-            baselineHelp={BASELINE_HELP}
-          />
+          <div data-testid="runway-chart" className="flex min-h-0 flex-1 flex-col">
+            <RunwayChart
+              current={currentProjection}
+              baseline={baselineProjection}
+              showBaseline={isEdited}
+              timelines={windowTimelines}
+              cashZeroDate={result.runway.cashZeroDate}
+              startDate={scenario.timeline.start}
+              mode={mode}
+              baselineLabel={BASELINE_LABEL}
+              baselineHelp={BASELINE_HELP}
+            />
+          </div>
         </Card>
       </div>
 
@@ -337,7 +365,7 @@ export function RunwayApp() {
         <LedgerView result={result} />
       </Card>
 
-      <footer className="mt-10 text-center text-xs text-zinc-400">
+      <footer data-chrome className="mt-10 text-center text-xs text-zinc-400">
         Sample data is fictional. Not financial advice.
       </footer>
     </div>

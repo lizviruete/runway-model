@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chooseInitSource, isExampleSource, nextExampleMode } from "./exampleMode";
+import { chooseInitSource, isExampleSource, nextExampleMode, presetIdFromSearch } from "./exampleMode";
 import { createSampleScenario } from "./sample";
 import { shareableUrl } from "./share";
 
@@ -42,6 +42,44 @@ describe("chooseInitSource — mount hydration precedence", () => {
 
   it("?example=1 takes precedence over a restorable last session", () => {
     expect(chooseInitSource("?example=1", true)).toBe("example");
+  });
+
+  it("enters a specific preset on a valid ?preset=<id>", () => {
+    const source = chooseInitSource("?preset=zero-housing", false);
+    expect(source).toBe("preset");
+    expect(isExampleSource(source)).toBe(true); // preset deep-link is example mode
+  });
+
+  it("ignores an invalid ?preset=<id> and falls through the chain", () => {
+    expect(chooseInitSource("?preset=not-a-preset", false)).toBe("blank");
+    expect(chooseInitSource("?preset=not-a-preset", true)).toBe("restore");
+  });
+
+  it("?s= takes precedence over ?preset=", () => {
+    expect(chooseInitSource(`${sharedSearch}&preset=zero-housing`, false)).toBe("url");
+  });
+
+  it("?preset= takes precedence over ?example=1", () => {
+    expect(chooseInitSource("?preset=zero-housing&example=1", false)).toBe("preset");
+  });
+
+  it("?reset=1 wins over everything (the test-only wipe)", () => {
+    expect(chooseInitSource("?reset=1", false)).toBe("reset");
+    expect(chooseInitSource(`${sharedSearch}&reset=1`, true)).toBe("reset");
+    expect(chooseInitSource("?reset=1&preset=zero-housing&example=1", true)).toBe("reset");
+  });
+});
+
+describe("presetIdFromSearch", () => {
+  it("returns the id for a valid example preset", () => {
+    expect(presetIdFromSearch("?preset=landed-new-role")).toBe("landed-new-role");
+  });
+
+  it("returns null for a missing or unknown preset", () => {
+    expect(presetIdFromSearch("")).toBeNull();
+    expect(presetIdFromSearch("?preset=")).toBeNull();
+    expect(presetIdFromSearch("?preset=baseline")).toBeNull(); // built-in baseline was removed
+    expect(presetIdFromSearch("?preset=bogus")).toBeNull();
   });
 });
 

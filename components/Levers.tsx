@@ -58,7 +58,12 @@ export function Levers({ scenario, onChange, baselineSpend }: LeversProps) {
     <section className="flex h-full min-h-0 flex-col">
       <div className="-mr-2 min-h-0 flex-1 overflow-y-auto pr-2">
         {/* ===== Income ===== */}
-        <GroupHeader title="Income" addLabel="+ Add income" onAdd={() => setModal({ noun: "income", editing: null })} />
+        <GroupHeader
+          title="Income"
+          addLabel="+ Add income"
+          addTestId="lever-add-income"
+          onAdd={() => setModal({ noun: "income", editing: null })}
+        />
 
         {salary ? (
           <div className="mb-3">
@@ -67,6 +72,7 @@ export function Levers({ scenario, onChange, baselineSpend }: LeversProps) {
               value={salary.amount}
               onChange={setSalary}
               hint="Ongoing paycheck, if any — $0 if income has paused."
+              testId="lever-salary"
             />
           </div>
         ) : null}
@@ -84,7 +90,12 @@ export function Levers({ scenario, onChange, baselineSpend }: LeversProps) {
 
         {/* ===== Expenses ===== */}
         <div className="mt-5">
-          <GroupHeader title="Expenses" addLabel="+ Add expense" onAdd={() => setModal({ noun: "expense", editing: null })} />
+          <GroupHeader
+            title="Expenses"
+            addLabel="+ Add expense"
+            addTestId="lever-add-expense"
+            onAdd={() => setModal({ noun: "expense", editing: null })}
+          />
         </div>
 
         <Housing scenario={scenario} onChange={onChange} />
@@ -95,6 +106,8 @@ export function Levers({ scenario, onChange, baselineSpend }: LeversProps) {
             value={L.targetMonthlySpend}
             onChange={(v) => setLevers({ targetMonthlySpend: v })}
             hint={targetSpendHint(L.targetMonthlySpend, baselineSpend)}
+            testId="lever-target-spend"
+            hintTestId="lever-target-spend-hint"
           />
         </div>
 
@@ -130,11 +143,22 @@ export function Levers({ scenario, onChange, baselineSpend }: LeversProps) {
   );
 }
 
-function GroupHeader({ title, addLabel, onAdd }: { title: string; addLabel: string; onAdd: () => void }) {
+function GroupHeader({
+  title,
+  addLabel,
+  addTestId,
+  onAdd,
+}: {
+  title: string;
+  addLabel: string;
+  addTestId?: string;
+  onAdd: () => void;
+}) {
   return (
     <div className="sticky top-0 z-10 -mt-1 mb-2 flex items-center justify-between bg-white pb-1.5 pt-1">
       <h3 className="text-base font-semibold text-zinc-900">{title}</h3>
       <button
+        data-testid={addTestId}
         onClick={onAdd}
         className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-600 hover:border-zinc-400 hover:text-zinc-800"
       >
@@ -177,6 +201,7 @@ function Housing({ scenario, onChange }: Props) {
         label="Housing / rent (monthly)"
         value={L.housing.monthlyAmount}
         onChange={(v) => setLevers({ housing: { ...L.housing, monthlyAmount: v } })}
+        testId="lever-housing"
       />
       <label className="flex items-center gap-2 text-xs text-zinc-600">
         <input

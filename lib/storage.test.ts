@@ -1,13 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createBlankScenario, createSampleScenario } from "./sample";
 import {
+  clearAllSavedData,
   clearSavedBaseline,
   getSavedBaseline,
+  listSaved,
   loadLastBaseline,
   loadLastSession,
   persistWorkingState,
   saveLastBaseline,
   saveLastSession,
+  saveScenario,
   setSavedBaseline,
 } from "./storage";
 
@@ -105,5 +108,29 @@ describe("saved baseline — the dated record behind the Baseline pill", () => {
     expect(getSavedBaseline()).toBeNull();
     // The working anchor lingers, so VS-BASELINE stays renderable.
     expect(loadLastBaseline()).toEqual(scenario);
+  });
+});
+
+describe("clearAllSavedData — the ?reset=1 full wipe", () => {
+  beforeEach(() => {
+    vi.stubGlobal("window", { localStorage: fakeStorage() });
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("removes every persisted key — saved scenarios, baseline, session, anchor", () => {
+    const scenario = createSampleScenario("2026-06-01");
+    saveScenario("Plan A", scenario, "2026-06-20");
+    setSavedBaseline(scenario, "2026-06-27");
+    saveLastSession(scenario);
+    saveLastBaseline(scenario);
+
+    clearAllSavedData();
+
+    expect(listSaved()).toEqual([]);
+    expect(getSavedBaseline()).toBeNull();
+    expect(loadLastSession()).toBeNull();
+    expect(loadLastBaseline()).toBeNull();
   });
 });
