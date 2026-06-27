@@ -11,7 +11,36 @@ import {
   renumber,
   updateAccount,
 } from "@/lib/scenario";
+import {
+  percentToText,
+  sanitizeAmountText,
+  textToPercent,
+  toClamped,
+} from "@/lib/numberInput";
 import { TYPE_COLORS } from "./ui";
+import { blockSignKeys, useNumericInput } from "./useNumericInput";
+
+/** $ balance field — shared sanitized numeric behavior (extracted so it can use
+ *  the hook outside the account `.map`). */
+function BalanceField({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const input = useNumericInput({
+    value,
+    toText: String,
+    sanitize: sanitizeAmountText,
+    parse: (t) => toClamped(t, 0),
+    onChange,
+  });
+  return (
+    <div className="flex shrink-0 items-center rounded border border-zinc-200">
+      <span className="pl-1.5 text-xs text-zinc-400">$</span>
+      <input
+        type="text"
+        {...input}
+        className="w-24 bg-transparent px-1 py-1 text-right text-sm tabular-nums text-zinc-900 outline-none"
+      />
+    </div>
+  );
+}
 
 interface Props {
   scenario: Scenario;
@@ -100,19 +129,10 @@ export function AccountList({ scenario, onChange }: Props) {
                   onChange={(e) => onChange(updateAccount(scenario, account.id, { name: e.target.value }))}
                   className="min-w-0 flex-1 rounded border border-transparent px-1.5 py-1 text-sm font-medium text-zinc-900 placeholder:text-zinc-400 hover:border-zinc-200 focus:border-zinc-400 focus:outline-none"
                 />
-                <div className="flex shrink-0 items-center rounded border border-zinc-200">
-                  <span className="pl-1.5 text-xs text-zinc-400">$</span>
-                  <input
-                    type="number"
-                    value={account.balance}
-                    step={500}
-                    min={0}
-                    onChange={(e) =>
-                      onChange(updateAccount(scenario, account.id, { balance: Number(e.target.value) || 0 }))
-                    }
-                    className="w-24 bg-transparent px-1 py-1 text-right text-sm tabular-nums text-zinc-900 outline-none"
-                  />
-                </div>
+                <BalanceField
+                  value={account.balance}
+                  onChange={(v) => onChange(updateAccount(scenario, account.id, { balance: v }))}
+                />
                 <button
                   onClick={() => deleteAccount(account.id)}
                   className="shrink-0 rounded px-1.5 py-1 text-xs text-zinc-400 hover:bg-red-50 hover:text-red-500"
@@ -205,10 +225,11 @@ function Pct({
       <div className="flex items-center rounded border border-zinc-200">
         <input
           type="number"
-          value={Math.round(value * 1000) / 10}
+          value={percentToText(value)}
           step={0.5}
           min={0}
-          onChange={(e) => onChange((Number(e.target.value) || 0) / 100)}
+          onKeyDown={blockSignKeys}
+          onChange={(e) => onChange(textToPercent(e.target.value))}
           className="w-full bg-transparent px-1.5 py-1 text-right text-sm tabular-nums text-zinc-900 outline-none"
         />
         <span className="pr-1.5 text-xs text-zinc-400">%</span>

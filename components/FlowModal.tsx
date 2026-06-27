@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { sanitizeAmountText } from "@/lib/numberInput";
 
 export interface FlowDraft {
   label: string;
@@ -90,11 +91,20 @@ export function FlowModal({ title, noun, initial, defaultDate, onSubmit, onClose
           <div className="flex items-center rounded-lg border border-zinc-300 focus-within:border-zinc-500">
             <span className="pl-2.5 text-sm text-zinc-400">$</span>
             <input
-              type="number"
+              type="text"
+              inputMode="numeric"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e) => {
+                const clean = sanitizeAmountText(e.currentTarget.value);
+                // Pure-junk keystroke (letter, `-`): React would bail and leave
+                // it in the DOM, so reset the node directly.
+                if (clean === amount) {
+                  e.currentTarget.value = clean;
+                  return;
+                }
+                setAmount(clean);
+              }}
               placeholder="0"
-              min={0}
               className="w-full bg-transparent px-2 py-1.5 text-sm tabular-nums text-zinc-900 outline-none"
             />
           </div>
