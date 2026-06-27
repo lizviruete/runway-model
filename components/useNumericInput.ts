@@ -21,7 +21,7 @@ export function blockSignKeys(e: React.KeyboardEvent<HTMLInputElement>): void {
  */
 export function useNumericInput(opts: {
   value: number;
-  /** Model number → display text. */
+  /** Model number → raw editing text (comma-free, shown while focused). */
   toText: (v: number) => string;
   /** Raw keystroke text → sanitized display text. */
   sanitize: (raw: string) => string;
@@ -29,9 +29,12 @@ export function useNumericInput(opts: {
   parse: (text: string) => number;
   onChange: (v: number) => void;
   inputMode?: "numeric" | "decimal";
+  /** Resting (blurred) display, e.g. comma-grouped. Defaults to `toText`. */
+  format?: (v: number) => string;
 }) {
-  const { value, toText, sanitize, parse, onChange, inputMode = "numeric" } = opts;
+  const { value, toText, sanitize, parse, onChange, inputMode = "numeric", format } = opts;
   const [text, setText] = useState(() => toText(value));
+  const [focused, setFocused] = useState(false);
   // "Adjust state on prop change during render" — re-sync when `value` changes
   // from outside (preset applied, scenario loaded), without an effect.
   const [lastValue, setLastValue] = useState(value);
@@ -40,10 +43,16 @@ export function useNumericInput(opts: {
     setText(toText(value));
   }
 
+  // Comma-free raw text while focused (clean editing); formatted at rest.
+  const display = focused || !format ? text : format(value);
+
   return {
-    value: text,
+    value: display,
     inputMode,
-    onFocus: (e: React.FocusEvent<HTMLInputElement>) => e.currentTarget.select(),
+    onFocus: (e: React.FocusEvent<HTMLInputElement>) => {
+      setFocused(true);
+      e.currentTarget.select();
+    },
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
       const clean = sanitize(e.currentTarget.value);
       if (clean === text) {
@@ -58,6 +67,6 @@ export function useNumericInput(opts: {
       setLastValue(next); // we own this change — don't let the sync clobber `text`
       onChange(next);
     },
-    onBlur: () => setText(toText(value)),
+    onBlur: () => setFocused(false),
   };
 }

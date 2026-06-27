@@ -6,8 +6,8 @@ import type { AssetSaleLever, FlowEvent, Levers as LeversType, Scenario } from "
 import { formatCurrency, formatMonthYear } from "@/lib/format";
 import { newExpenseId, newIncomeId } from "@/lib/scenario";
 import { SALARY_ID } from "@/lib/sample";
-import { percentToText, textToPercent } from "@/lib/numberInput";
-import { targetSpendHint } from "@/lib/spendDelta";
+import { comparativeHint, NEW_VS_BASELINE } from "@/lib/comparative";
+import { percentToText, sanitizePercentText, textToPercent } from "@/lib/numberInput";
 import { FlowModal, type FlowDraft } from "./FlowModal";
 import { NumberField } from "./ui";
 import { blockSignKeys } from "./useNumericInput";
@@ -18,14 +18,14 @@ interface Props {
 }
 
 interface LeversProps extends Props {
-  /** The active baseline's non-housing spend — the working anchor the runway Δ
-   *  and chart dashed overlay use (not the static scenario.baselineMonthlySpend). */
-  baselineSpend: number;
+  /** The active baseline's levers, or null when no meaningful baseline exists
+   *  (the all-zeros blank canvas) — then the "vs baseline" hints are hidden. */
+  baseline: LeversType | null;
 }
 
 type ModalState = { noun: "income" | "expense"; editing: FlowEvent | null };
 
-export function Levers({ scenario, onChange, baselineSpend }: LeversProps) {
+export function Levers({ scenario, onChange, baseline }: LeversProps) {
   const L = scenario.levers;
   const setLevers = (patch: Partial<LeversType>) =>
     onChange({ ...scenario, levers: { ...L, ...patch } });
@@ -33,6 +33,17 @@ export function Levers({ scenario, onChange, baselineSpend }: LeversProps) {
   const [modal, setModal] = useState<ModalState | null>(null);
 
   const salary = L.incomeEvents.find((e) => e.id === SALARY_ID);
+
+  // Per-lever "vs baseline" hints — only when a meaningful baseline exists.
+  const coreHint = (current: number, baseValue: number | undefined): string | undefined =>
+    baseline ? comparativeHint(current, baseValue ?? 0, { perMonth: true }) : undefined;
+  const eventHint = (ev: FlowEvent, baseEvents: FlowEvent[] | undefined): string | undefined => {
+    if (!baseline) return undefined;
+    const match = baseEvents?.find((b) => b.id === ev.id);
+    if (!match) return NEW_VS_BASELINE;
+    return comparativeHint(ev.amount, match.amount, { perMonth: ev.kind === "recurring" });
+  };
+  const salaryBaseline = baseline?.incomeEvents.find((e) => e.id === SALARY_ID)?.amount;
   const otherIncome = L.incomeEvents.filter((e) => e.id !== SALARY_ID);
   const expenses = L.expenseEvents ?? [];
 
@@ -73,8 +84,9 @@ export function Levers({ scenario, onChange, baselineSpend }: LeversProps) {
               label="Salary / primary income"
               value={salary.amount}
               onChange={setSalary}
-              hint="Ongoing paycheck, if any — $0 if income has paused."
+              hint={coreHint(salary.amount, salaryBaseline) ?? "Ongoing paycheck, if any — $0 if income has paused."}
               testId="lever-salary"
+              hintTestId="lever-salary-hint"
             />
           </div>
         ) : null}
@@ -84,6 +96,7 @@ export function Levers({ scenario, onChange, baselineSpend }: LeversProps) {
             <FlowRow
               key={e.id}
               event={e}
+              hint={eventHint(e, baseline?.incomeEvents)}
               onEdit={() => setModal({ noun: "income", editing: e })}
               onDelete={() => setLevers({ incomeEvents: L.incomeEvents.filter((x) => x.id !== e.id) })}
             />
@@ -100,14 +113,18 @@ export function Levers({ scenario, onChange, baselineSpend }: LeversProps) {
           />
         </div>
 
-        <Housing scenario={scenario} onChange={onChange} />
+        <Housing
+          scenario={scenario}
+          onChange={onChange}
+          hint={coreHint(L.housing.monthlyAmount, baseline?.housing.monthlyAmount)}
+        />
 
         <div className="mt-2">
           <NumberField
             label="Target monthly spend (non-housing)"
             value={L.targetMonthlySpend}
             onChange={(v) => setLevers({ targetMonthlySpend: v })}
-            hint={targetSpendHint(L.targetMonthlySpend, baselineSpend)}
+            hint={coreHint(L.targetMonthlySpend, baseline?.targetMonthlySpend)}
             testId="lever-target-spend"
             hintTestId="lever-target-spend-hint"
           />
@@ -118,6 +135,7 @@ export function Levers({ scenario, onChange, baselineSpend }: LeversProps) {
             <FlowRow
               key={e.id}
               event={e}
+              hint={eventHint(e, baseline?.expenseEvents)}
               onEdit={() => setModal({ noun: "expense", editing: e })}
               onDelete={() => setLevers({ expenseEvents: expenses.filter((x) => x.id !== e.id) })}
             />
@@ -171,7 +189,17 @@ function GroupHeader({
 }
 
 /** Inline summary of an added income/expense; clicking it reopens the modal. */
-function FlowRow({ event, onEdit, onDelete }: { event: FlowEvent; onEdit: () => void; onDelete: () => void }) {
+function FlowRow({
+  event,
+  hint,
+  onEdit,
+  onDelete,
+}: {
+  event: FlowEvent;
+  hint?: string;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
   const timing =
     event.kind === "recurring"
       ? `Monthly · from ${formatMonthYear(event.startDate)}${event.endDate ? ` through ${formatMonthYear(event.endDate)}` : " (ongoing)"}`
@@ -181,6 +209,11 @@ function FlowRow({ event, onEdit, onDelete }: { event: FlowEvent; onEdit: () => 
       <button onClick={onEdit} className="min-w-0 flex-1 text-left" title="Edit">
         <div className="truncate text-sm font-medium text-zinc-900">{event.label}</div>
         <div className="truncate text-[11px] text-zinc-500">{timing}</div>
+        {hint ? (
+          <div data-testid="lever-event-hint" className="truncate text-[11px] text-zinc-400">
+            {hint}
+          </div>
+        ) : null}
       </button>
       <span className="shrink-0 text-sm tabular-nums text-zinc-700">{formatCurrency(event.amount)}</span>
       <button
@@ -194,7 +227,7 @@ function FlowRow({ event, onEdit, onDelete }: { event: FlowEvent; onEdit: () => 
   );
 }
 
-function Housing({ scenario, onChange }: Props) {
+function Housing({ scenario, onChange, hint }: Props & { hint?: string }) {
   const L = scenario.levers;
   const setLevers = (patch: Partial<LeversType>) => onChange({ ...scenario, levers: { ...L, ...patch } });
   return (
@@ -204,6 +237,8 @@ function Housing({ scenario, onChange }: Props) {
         value={L.housing.monthlyAmount}
         onChange={(v) => setLevers({ housing: { ...L.housing, monthlyAmount: v } })}
         testId="lever-housing"
+        hintTestId="lever-housing-hint"
+        hint={hint}
       />
       <label className="flex items-center gap-2 text-xs text-zinc-600">
         <input
@@ -374,7 +409,7 @@ function PctField({
           step={0.5}
           min={0}
           onKeyDown={blockSignKeys}
-          onChange={(e) => onChange(textToPercent(e.target.value))}
+          onChange={(e) => onChange(textToPercent(sanitizePercentText(e.target.value)))}
           className="w-full bg-transparent px-2 py-1.5 text-right text-sm tabular-nums text-zinc-900 outline-none"
         />
         <span className="pr-2 text-sm text-zinc-400">%</span>
