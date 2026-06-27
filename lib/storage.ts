@@ -6,12 +6,6 @@ import type { Scenario } from "./engine/types";
 const SAVED_KEY = "runway:saved";
 const LAST_KEY = "runway:last";
 const BASELINE_KEY = "runway:baseline";
-const UI_KEY = "runway:ui";
-
-/** Small slice of UI state worth surviving a reload (e.g. the blank fresh state). */
-export interface UiState {
-  showLibrary: boolean;
-}
 
 export interface SavedScenario {
   key: string; // storage key (distinct from scenario.id)
@@ -89,12 +83,4 @@ export function saveLastBaseline(scenario: Scenario): void {
 
 export function loadLastBaseline(): Scenario | null {
   return read<Scenario | null>(BASELINE_KEY, null);
-}
-
-export function saveUiState(ui: UiState): void {
-  write(UI_KEY, ui);
-}
-
-export function loadUiState(): UiState | null {
-  return read<UiState | null>(UI_KEY, null);
 }

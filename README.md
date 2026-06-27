@@ -90,13 +90,16 @@ are user-editable, and "Other" is a no-implications escape hatch.
 
 ## Outcome & status
 
-**Live and feature-complete through Phase D.** Built-in situation presets
-(Baseline, Zero housing cost, Dramatic lifestyle cut, Both combined, Survive to
-year-end — solved via binary search — and Landed a new role), Save-scenario to
-localStorage, and shareable-URL state: the scenario serializes to a compact
-`?s=` param on every change, so a refresh restores the current scenario and a
-copied link reproduces it exactly in a fresh tab. Hydration priority is URL >
-localStorage > sample, with an explicit "Reset to sample" for the clean demo.
+**Live and feature-complete through Phase D.** The default load is an empty
+canvas — a first-time visitor lands on a blank slate to enter their own numbers.
+Built-in example presets (Zero housing cost, Dramatic lifestyle cut, Both
+combined, Survive to year-end — solved via binary search — and Landed a new
+role) live behind a "See an Example" action (or the `?example=1` deep link) that
+loads the fictional sample and reveals the example chips. Save-scenario to
+localStorage and shareable-URL state round it out: the scenario serializes to a
+compact `?s=` param on every change, so a refresh restores the current scenario
+and a copied link reproduces it exactly in a fresh tab. Hydration priority is
+`?s=` > `?example=1` > a returning user's last session > the empty canvas.
 
 Earlier phases: **C** — major-asset-sale lever (net proceeds, closing costs,
 loan + tied-credit-line payoff, cap-gains tax to the following April, stopping
