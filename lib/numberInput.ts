@@ -9,12 +9,21 @@
 //     1234) so it can't silently 100x a value. Percentages keep one decimal.
 // =============================================================================
 
-/** Sanitize an amount field's raw text → digits only, leading zeros stripped,
- *  any fractional part dropped. `""` stays `""` (an in-progress empty field). */
+/** Sanitize an amount field's *live buffer* text: digits + at most one `.` (so
+ *  `1234.56` displays while typing), leading zeros stripped, sign/junk dropped.
+ *  The fraction is truncated later, at commit (see `toAmount`) — NOT here, so the
+ *  decimal point and its digits never merge into the integer. `""` stays `""`. */
 export function sanitizeAmountText(raw: string): string {
-  const digits = raw.replace(/[^0-9.]/g, ""); // keep digits + dot, drop sign/junk
-  const whole = digits.split(".")[0]; // drop any fractional part entirely
-  return stripLeadingZeros(whole);
+  const cleaned = raw.replace(/[^0-9.]/g, ""); // keep digits + dot, drop sign/junk
+  const firstDot = cleaned.indexOf(".");
+  const oneDot =
+    firstDot === -1
+      ? cleaned
+      : cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, "");
+  const [int, frac] = oneDot.split(".");
+  const intPart = stripLeadingZeros(int);
+  if (frac === undefined) return intPart; // no decimal point typed
+  return `${intPart === "" ? "0" : intPart}.${frac}`;
 }
 
 /** Sanitize a percent field's raw text → digits + at most one decimal point,
@@ -45,6 +54,12 @@ export function toClamped(text: string, min = 0): number {
   if (text === "" || text === ".") return min;
   const n = Number(text);
   return Number.isFinite(n) ? Math.max(min, n) : min;
+}
+
+/** Commit an amount: clamp `>= min`, then truncate to a whole number — the
+ *  fraction is dropped (`1234.56 → 1234`), never merged into the integer. */
+export function toAmount(text: string, min = 0): number {
+  return Math.trunc(toClamped(text, min));
 }
 
 // --- percent helpers ---------------------------------------------------------

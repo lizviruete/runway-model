@@ -15,7 +15,7 @@ import {
   percentToText,
   sanitizeAmountText,
   textToPercent,
-  toClamped,
+  toAmount,
 } from "@/lib/numberInput";
 import { TYPE_COLORS } from "./ui";
 import { blockSignKeys, useNumericInput } from "./useNumericInput";
@@ -27,7 +27,7 @@ function BalanceField({ value, onChange }: { value: number; onChange: (v: number
     value,
     toText: String,
     sanitize: sanitizeAmountText,
-    parse: (t) => toClamped(t, 0),
+    parse: (t) => toAmount(t, 0),
     onChange,
   });
   return (

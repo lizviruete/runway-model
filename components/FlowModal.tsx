@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { sanitizeAmountText } from "@/lib/numberInput";
+import { sanitizeAmountText, toAmount } from "@/lib/numberInput";
 
 export interface FlowDraft {
   label: string;
@@ -44,7 +44,7 @@ export function FlowModal({ title, noun, initial, defaultDate, onSubmit, onClose
     onSubmit({
       label: label.trim() || (noun === "income" ? "Income" : "Expense"),
       kind,
-      amount: Number(amount) || 0,
+      amount: toAmount(amount),
       startDate,
       endDate: kind === "recurring" && endDate ? endDate : undefined,
     });

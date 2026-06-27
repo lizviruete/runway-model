@@ -4,6 +4,7 @@ import {
   sanitizeAmountText,
   sanitizePercentText,
   textToPercent,
+  toAmount,
   toClamped,
 } from "./numberInput";
 
@@ -25,26 +26,41 @@ describe("sanitizeAmountText", () => {
     expect(sanitizeAmountText("$1,200")).toBe("1200");
   });
 
-  it("drops the fractional part rather than concatenating digits", () => {
-    expect(sanitizeAmountText("1234.56")).toBe("1234"); // not 123456
-    expect(sanitizeAmountText("0.99")).toBe("0");
+  it("keeps one decimal point in the LIVE buffer (so 1234.56 displays while typing)", () => {
+    expect(sanitizeAmountText("1234.56")).toBe("1234.56"); // dot + fraction preserved
+    expect(sanitizeAmountText("1234.")).toBe("1234."); // trailing dot mid-type
+    expect(sanitizeAmountText("1234.5.6")).toBe("1234.56"); // at most one dot
+    expect(sanitizeAmountText("0.5")).toBe("0.5");
+  });
+});
+
+describe("toAmount — commits the integer part (fraction truncated, never merged)", () => {
+  it("truncates the fraction instead of 100x-ing the amount", () => {
+    expect(toAmount("1234.56")).toBe(1234); // the QA bug: NOT 123456
+    expect(toAmount("12.99")).toBe(12);
+    expect(toAmount("0.5")).toBe(0);
+  });
+
+  it("coerces empty / invalid to the min (default 0)", () => {
+    expect(toAmount("")).toBe(0);
+    expect(toAmount(".")).toBe(0);
+    expect(toAmount("abc")).toBe(0);
+  });
+
+  it("clamps negatives to >= 0 and passes through whole values", () => {
+    expect(toAmount("-5")).toBe(0);
+    expect(toAmount("5000")).toBe(5000);
+    expect(toAmount("0")).toBe(0);
   });
 });
 
 describe("toClamped", () => {
-  it("coerces empty / invalid to the min (default 0)", () => {
+  it("coerces empty / invalid to the min, clamps negatives, passes valid through", () => {
     expect(toClamped("")).toBe(0);
     expect(toClamped(".")).toBe(0);
     expect(toClamped("abc")).toBe(0);
-  });
-
-  it("clamps negatives to >= 0 as a defensive backstop", () => {
     expect(toClamped("-5")).toBe(0);
-  });
-
-  it("passes through a valid non-negative number", () => {
     expect(toClamped("5000")).toBe(5000);
-    expect(toClamped("0")).toBe(0);
   });
 });
 
