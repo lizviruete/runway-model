@@ -18,11 +18,13 @@ export interface SavedScenario {
   scenario: Scenario;
 }
 
-/** A baseline the user explicitly saved (via "Save as baseline"), with a date —
- *  distinct from the always-rewritten working anchor (`runway:baseline`). */
+/** A baseline the user explicitly saved (via "Save as baseline"), with a date
+ *  and optional note — distinct from the always-rewritten working anchor
+ *  (`runway:baseline`). */
 export interface SavedBaseline {
   scenario: Scenario;
   savedAt: string;
+  notes?: string;
 }
 
 function available(): boolean {
@@ -97,8 +99,8 @@ export function loadLastBaseline(): Scenario | null {
 
 /** Save / read / clear the dated user-saved baseline that backs the Baseline pill
  *  (independent of the working `runway:baseline` Δ anchor). */
-export function setSavedBaseline(scenario: Scenario, savedAt: string): void {
-  write(SAVED_BASELINE_KEY, { scenario, savedAt });
+export function setSavedBaseline(scenario: Scenario, savedAt: string, notes?: string): void {
+  write(SAVED_BASELINE_KEY, { scenario, savedAt, notes: notes?.trim() || undefined });
 }
 
 export function getSavedBaseline(): SavedBaseline | null {
