@@ -84,3 +84,19 @@ export function saveLastBaseline(scenario: Scenario): void {
 export function loadLastBaseline(): Scenario | null {
   return read<Scenario | null>(BASELINE_KEY, null);
 }
+
+/**
+ * Persist the working session + its baseline — but NEVER while previewing an
+ * example. Example mode is ephemeral: the sample scenario and its baseline live
+ * in memory only, so the user's real saved session + baseline survive untouched
+ * and are restored on exit.
+ */
+export function persistWorkingState(
+  scenario: Scenario,
+  baseline: Scenario,
+  exampleMode: boolean,
+): void {
+  if (exampleMode) return;
+  saveLastSession(scenario);
+  saveLastBaseline(baseline);
+}

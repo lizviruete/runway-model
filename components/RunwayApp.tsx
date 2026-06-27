@@ -14,8 +14,7 @@ import {
   listSaved,
   loadLastBaseline,
   loadLastSession,
-  saveLastBaseline,
-  saveLastSession,
+  persistWorkingState,
   saveScenario,
   type SavedScenario,
 } from "@/lib/storage";
@@ -105,12 +104,14 @@ export function RunwayApp() {
   // the first-visit / embed URL and a post-reset URL stay clean.
   useEffect(() => {
     if (!mounted) return;
-    saveLastSession(scenario);
-    saveLastBaseline(baselineScenario);
+    // While previewing an example, suppress writes to the user's saved session +
+    // baseline — the example data is in-memory only. The URL still reflects the
+    // current scenario (shareable), but never the user's persisted storage.
+    persistWorkingState(scenario, baselineScenario, exampleMode);
     const path = window.location.origin + window.location.pathname;
     const edited = encodeScenario(scenario) !== encodedBaseline;
     window.history.replaceState(null, "", edited ? shareableUrl(scenario, path) : path);
-  }, [scenario, baselineScenario, mounted, encodedBaseline]);
+  }, [scenario, baselineScenario, exampleMode, mounted, encodedBaseline]);
 
   const result = useMemo(() => simulate(scenario), [scenario]);
   const baseline = useMemo(() => simulate(baselineScenario), [baselineScenario]);
