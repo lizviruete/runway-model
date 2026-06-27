@@ -11,10 +11,11 @@
 //   returning user → restore last session, no chips
 // =============================================================================
 
+import { getPreset } from "./presets";
 import { scenarioFromSearch } from "./share";
 
 /** Which source the app hydrates from on mount. */
-export type InitSource = "url" | "example" | "restore" | "blank";
+export type InitSource = "reset" | "url" | "preset" | "example" | "restore" | "blank";
 
 /** The example-mode-affecting user actions. */
 export type ExampleAction =
@@ -27,18 +28,28 @@ export type ExampleAction =
 
 /**
  * Resolve the mount hydration source. Precedence is strict:
- * `?s=` > `?example=1` > a restorable last session > a blank canvas.
+ * `?reset=1` (test-only wipe) > `?s=` > a valid `?preset=<id>` > `?example=1` >
+ * a restorable last session > a blank canvas.
  */
 export function chooseInitSource(search: string, hasLastSession: boolean): InitSource {
+  const params = new URLSearchParams(search);
+  if (params.get("reset") === "1") return "reset";
   if (scenarioFromSearch(search)) return "url";
-  if (new URLSearchParams(search).get("example") === "1") return "example";
+  if (presetIdFromSearch(search)) return "preset";
+  if (params.get("example") === "1") return "example";
   if (hasLastSession) return "restore";
   return "blank";
 }
 
-/** Whether a given init source lands the app in example mode. */
+/** The validated `?preset=<id>` deep-link — an existing example preset — or null. */
+export function presetIdFromSearch(search: string): string | null {
+  const id = new URLSearchParams(search).get("preset");
+  return id && getPreset(id) ? id : null;
+}
+
+/** Whether a given init source lands the app in example mode (sample + chips). */
 export function isExampleSource(source: InitSource): boolean {
-  return source === "example";
+  return source === "example" || source === "preset";
 }
 
 /**

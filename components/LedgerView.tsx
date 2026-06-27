@@ -56,13 +56,14 @@ export function LedgerView({ result }: { result: SimulationResult }) {
   const [openMonth, setOpenMonth] = useState<string | null>(null);
 
   return (
-    <section>
+    <section data-testid="ledger">
       <div className="mb-1 flex items-center justify-between">
         <SectionTitle hint="The auditable trail behind every number">Ledger</SectionTitle>
         <div className="flex overflow-hidden rounded-lg border border-zinc-200 text-xs">
           {(["monthly", "transactions"] as const).map((m) => (
             <button
               key={m}
+              data-testid={m === "monthly" ? "ledger-tab-monthly" : "ledger-tab-transactions"}
               onClick={() => setMode(m)}
               className={`px-3 py-1 ${mode === m ? "bg-zinc-900 text-white" : "bg-white text-zinc-600 hover:bg-zinc-50"}`}
             >

@@ -53,6 +53,8 @@ export function NumberField({
   step = 100,
   min = 0,
   hint,
+  testId,
+  hintTestId,
 }: {
   label: string;
   value: number;
@@ -61,6 +63,8 @@ export function NumberField({
   step?: number;
   min?: number;
   hint?: ReactNode;
+  testId?: string;
+  hintTestId?: string;
 }) {
   return (
     <label className="block">
@@ -69,6 +73,7 @@ export function NumberField({
         {prefix ? <span className="pl-2.5 text-sm text-zinc-400">{prefix}</span> : null}
         <input
           type="number"
+          data-testid={testId}
           value={Number.isFinite(value) ? value : 0}
           step={step}
           min={min}
@@ -76,7 +81,11 @@ export function NumberField({
           className="w-full bg-transparent px-2 py-1.5 text-sm tabular-nums text-zinc-900 outline-none"
         />
       </div>
-      {hint ? <span className="mt-1 block text-xs text-zinc-400">{hint}</span> : null}
+      {hint ? (
+        <span data-testid={hintTestId} className="mt-1 block text-xs text-zinc-400">
+          {hint}
+        </span>
+      ) : null}
     </label>
   );
 }

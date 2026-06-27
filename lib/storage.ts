@@ -116,6 +116,19 @@ export function clearSavedBaseline(): void {
   }
 }
 
+/** Test-only full wipe (the `?reset=1` hook): clears every persisted key so the
+ *  app starts from a pristine blank canvas. No end-user control reaches this. */
+export function clearAllSavedData(): void {
+  if (!available()) return;
+  try {
+    for (const key of [SAVED_KEY, SAVED_BASELINE_KEY, LAST_KEY, BASELINE_KEY, "runway:ui"]) {
+      window.localStorage.removeItem(key);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
  * Persist the working session + its baseline — but NEVER while previewing an
  * example. Example mode is ephemeral: the sample scenario and its baseline live

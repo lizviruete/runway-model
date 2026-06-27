@@ -9,18 +9,27 @@ function Metric({
   value,
   sub,
   tone = "default",
+  testId,
 }: {
   label: string;
   value: string;
   sub?: string;
   tone?: "default" | "good" | "bad";
+  testId?: string;
 }) {
   const valueColor =
     tone === "good" ? "text-emerald-600" : tone === "bad" ? "text-red-600" : "text-zinc-900";
   return (
     <Card className="p-5">
-      <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">{label}</div>
-      <div className={`mt-1 text-3xl font-semibold tabular-nums ${valueColor}`}>{value}</div>
+      <div data-testid={testId} className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+        {label}
+      </div>
+      <div
+        data-testid={testId ? `${testId}-value` : undefined}
+        className={`mt-1 text-3xl font-semibold tabular-nums ${valueColor}`}
+      >
+        {value}
+      </div>
       {sub ? <div className="mt-1 text-sm text-zinc-500">{sub}</div> : null}
     </Card>
   );
@@ -46,18 +55,21 @@ export function HeroMetrics({
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
       <Metric
+        testId="metric-runway"
         label="Runway"
         value={runway.survivesHorizon ? "Beyond horizon" : formatRunway(runway.months)}
         sub={runway.survivesHorizon ? "Funds outlast the timeline" : weeks}
         tone={runway.survivesHorizon ? "good" : "default"}
       />
       <Metric
+        testId="metric-cash-zero"
         label="Cash-zero date"
         value={runway.cashZeroDate ? formatDate(runway.cashZeroDate) : "—"}
         sub={runway.cashZeroDate ? "When funds run out" : "Within the modeled horizon"}
         tone={runway.cashZeroDate ? "bad" : "good"}
       />
       <Metric
+        testId="metric-vs-baseline"
         label="vs. baseline"
         value={deltaValue}
         sub={hasDelta ? "Change in runway" : "Same as the baseline scenario"}
