@@ -5,7 +5,10 @@ import type { Scenario } from "./engine/types";
 
 const SAVED_KEY = "runway:saved";
 const LAST_KEY = "runway:last";
+// `runway:baseline` = the working Δ comparison anchor (rewritten on every change);
+// `runway:savedBaseline` = the dated, user-saved record that drives the Baseline pill.
 const BASELINE_KEY = "runway:baseline";
+const SAVED_BASELINE_KEY = "runway:savedBaseline";
 
 export interface SavedScenario {
   key: string; // storage key (distinct from scenario.id)
@@ -13,6 +16,13 @@ export interface SavedScenario {
   notes?: string; // optional free-text description
   savedAt: string; // ISO-ish label; supplied by caller (no Date in lib core)
   scenario: Scenario;
+}
+
+/** A baseline the user explicitly saved (via "Save as baseline"), with a date —
+ *  distinct from the always-rewritten working anchor (`runway:baseline`). */
+export interface SavedBaseline {
+  scenario: Scenario;
+  savedAt: string;
 }
 
 function available(): boolean {
@@ -83,6 +93,25 @@ export function saveLastBaseline(scenario: Scenario): void {
 
 export function loadLastBaseline(): Scenario | null {
   return read<Scenario | null>(BASELINE_KEY, null);
+}
+
+/** Save / read / clear the dated user-saved baseline that backs the Baseline pill
+ *  (independent of the working `runway:baseline` Δ anchor). */
+export function setSavedBaseline(scenario: Scenario, savedAt: string): void {
+  write(SAVED_BASELINE_KEY, { scenario, savedAt });
+}
+
+export function getSavedBaseline(): SavedBaseline | null {
+  return read<SavedBaseline | null>(SAVED_BASELINE_KEY, null);
+}
+
+export function clearSavedBaseline(): void {
+  if (!available()) return;
+  try {
+    window.localStorage.removeItem(SAVED_BASELINE_KEY);
+  } catch {
+    /* ignore */
+  }
 }
 
 /**

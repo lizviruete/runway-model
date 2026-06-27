@@ -10,13 +10,17 @@ import { PRESETS, type Preset } from "@/lib/presets";
 import { createBlankScenario, createSampleScenario, SAMPLE_AS_OF } from "@/lib/sample";
 import { encodeScenario, scenarioFromSearch, shareableUrl } from "@/lib/share";
 import {
+  clearSavedBaseline,
   deleteSaved,
+  getSavedBaseline,
   listSaved,
   loadLastBaseline,
   loadLastSession,
   persistWorkingState,
-  saveScenario,
+  type SavedBaseline,
   type SavedScenario,
+  saveScenario,
+  setSavedBaseline,
 } from "@/lib/storage";
 import { AccountList } from "./AccountList";
 import { HeroMetrics } from "./HeroMetrics";
@@ -45,6 +49,7 @@ export function RunwayApp() {
   const [baselineScenario, setBaselineScenario] = useState<Scenario>(() => createBlankScenario());
   const [scenario, setScenario] = useState<Scenario>(() => createBlankScenario());
   const [saved, setSaved] = useState<SavedScenario[]>([]);
+  const [savedBaseline, setSavedBaselineState] = useState<SavedBaseline | null>(null);
   const [copied, setCopied] = useState(false);
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const [mode, setMode] = useState<ChartMode>(DEFAULT_CHART_MODE);
@@ -94,6 +99,7 @@ export function RunwayApp() {
       setBaselineScenario(blank);
     }
     setSaved(listSaved());
+    setSavedBaselineState(getSavedBaseline());
     setMounted(true);
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
@@ -180,12 +186,35 @@ export function RunwayApp() {
     setCopied(false);
   };
   const onSaveAsBaseline = () => {
-    // Lock the current inputs as the reference for the dashed line + Δ. This is
-    // the user's own baseline (not the built-in chip) — exit example mode.
+    // Lock the current inputs as the reference for the dashed line + Δ (the
+    // working `runway:baseline` anchor), AND store a dated saved-baseline record
+    // (`runway:savedBaseline`) that backs the Baseline pill. The user's own
+    // baseline (not the built-in chip) — exit example mode.
+    const savedAt = todayISO();
     setBaselineScenario(scenario);
+    setSavedBaseline(scenario, savedAt);
+    setSavedBaselineState({ scenario, savedAt });
     setActivePresetId(null);
     setExampleMode((m) => nextExampleMode(m, "saveAsBaseline"));
     setCopied(false);
+  };
+  const onLoadBaseline = () => {
+    if (!savedBaseline) return;
+    // Loading the saved baseline restores it as BOTH the working scenario and
+    // the Δ comparison anchor, so the dashed line reads neutral. Exit example mode.
+    setScenario(savedBaseline.scenario);
+    setBaselineScenario(savedBaseline.scenario);
+    setActivePresetId(null);
+    setExampleMode((m) => nextExampleMode(m, "loadSaved"));
+    setCopied(false);
+  };
+  const onDeleteBaseline = () => {
+    // Clear only the dated saved record (the Baseline pill). The working
+    // `runway:baseline` anchor lingers, so VS-BASELINE keeps rendering sanely —
+    // the dashed line still compares against the current anchor (Δ = 0 / hidden
+    // when the scenario equals it), never an empty/broken state.
+    clearSavedBaseline();
+    setSavedBaselineState(null);
   };
 
   const activeScenarioName = activePresetId
@@ -229,8 +258,11 @@ export function RunwayApp() {
         onSave={onSave}
         onSaveAsBaseline={onSaveAsBaseline}
         saved={saved}
+        savedBaseline={savedBaseline}
         onLoad={onLoad}
         onDelete={onDelete}
+        onLoadBaseline={onLoadBaseline}
+        onDeleteBaseline={onDeleteBaseline}
         onSeeExample={onSeeExample}
         onStartFresh={onStartFresh}
       />

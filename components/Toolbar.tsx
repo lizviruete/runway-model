@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import type { Preset } from "@/lib/presets";
-import type { SavedScenario } from "@/lib/storage";
+import { buildSavedPills } from "@/lib/savedPills";
+import type { SavedBaseline, SavedScenario } from "@/lib/storage";
 
 interface Props {
   presets: Preset[];
@@ -15,8 +16,11 @@ interface Props {
   onSave: (name: string, notes: string) => void;
   onSaveAsBaseline: () => void;
   saved: SavedScenario[];
+  savedBaseline: SavedBaseline | null;
   onLoad: (entry: SavedScenario) => void;
   onDelete: (key: string) => void;
+  onLoadBaseline: () => void;
+  onDeleteBaseline: () => void;
   onSeeExample: () => void;
   onStartFresh: () => void;
 }
@@ -31,15 +35,17 @@ export function Toolbar({
   onSave,
   onSaveAsBaseline,
   saved,
+  savedBaseline,
   onLoad,
   onDelete,
+  onLoadBaseline,
+  onDeleteBaseline,
   onSeeExample,
   onStartFresh,
 }: Props) {
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
   const [notes, setNotes] = useState("");
-  const [showSaved, setShowSaved] = useState(false);
 
   const commitSave = () => {
     const trimmed = name.trim();
@@ -48,6 +54,8 @@ export function Toolbar({
     setNotes("");
     setSaving(false);
   };
+
+  const pills = buildSavedPills(savedBaseline, saved);
 
   return (
     <div className="mb-6 space-y-3">
@@ -128,45 +136,6 @@ export function Toolbar({
           Save as baseline
         </button>
 
-        {saved.length > 0 ? (
-          <div className="relative">
-            <button
-              onClick={() => setShowSaved((s) => !s)}
-              className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:border-zinc-400"
-            >
-              Saved ({saved.length}) ▾
-            </button>
-            {showSaved ? (
-              <div className="absolute z-10 mt-1 w-64 rounded-lg border border-zinc-200 bg-white py-1 shadow-lg">
-                {saved.map((s) => (
-                  <div key={s.key} className="flex items-center justify-between px-2 py-1 hover:bg-zinc-50">
-                    <button
-                      onClick={() => {
-                        onLoad(s);
-                        setShowSaved(false);
-                      }}
-                      className="min-w-0 flex-1 text-left text-xs text-zinc-700"
-                      title={s.notes || s.name}
-                    >
-                      <span className="truncate">
-                        {s.name}
-                        <span className="ml-1 text-[10px] text-zinc-400">{s.savedAt}</span>
-                      </span>
-                      {s.notes ? <span className="block truncate text-[10px] text-zinc-400">{s.notes}</span> : null}
-                    </button>
-                    <button
-                      onClick={() => onDelete(s.key)}
-                      className="ml-2 rounded px-1 text-xs text-zinc-400 hover:bg-red-50 hover:text-red-500"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
         <div className="ml-auto flex items-center gap-3">
           <button onClick={onStartFresh} className="text-xs text-zinc-400 hover:text-zinc-600">
             Start fresh
@@ -177,6 +146,55 @@ export function Toolbar({
           </button>
         </div>
       </div>
+
+      {/* saved pills — the user's own baseline + scenarios, one-click, in every
+          state whenever saved items exist (the Baseline pill is pinned first and
+          styled distinctly). */}
+      {pills.length > 0 ? (
+        <div data-testid="saved-pills" className="flex flex-wrap items-start gap-3">
+          <span className="mt-1 text-xs font-medium uppercase tracking-wide text-zinc-400">Saved</span>
+          {pills.map((pill) => {
+            const isBaseline = pill.kind === "baseline";
+            const load = () =>
+              isBaseline ? onLoadBaseline() : onLoad(saved.find((s) => s.key === pill.key)!);
+            const del = () => (isBaseline ? onDeleteBaseline() : onDelete(pill.key));
+            return (
+              <div key={pill.key} data-testid="saved-pill" className="flex max-w-[12rem] flex-col gap-0.5">
+                <div className="flex items-center gap-1">
+                  <button
+                    data-testid="saved-pill-load"
+                    onClick={load}
+                    title={pill.notes || pill.label}
+                    className={`min-w-0 truncate rounded-full border px-3 py-1 text-xs transition-colors ${
+                      isBaseline
+                        ? "border-zinc-900 bg-zinc-900 font-medium text-white hover:bg-zinc-800"
+                        : "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-400"
+                    }`}
+                  >
+                    {pill.label}
+                  </button>
+                  <button
+                    data-testid="saved-pill-delete"
+                    onClick={del}
+                    aria-label={`Delete ${pill.label}`}
+                    className="rounded px-1 text-xs text-zinc-400 hover:bg-red-50 hover:text-red-500"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <span className="px-1 text-[10px] text-zinc-400">
+                  <span data-testid="saved-pill-date">{pill.date}</span>
+                  {pill.notes ? (
+                    <span data-testid="saved-pill-notes" title={pill.notes} className="block truncate">
+                      {pill.notes}
+                    </span>
+                  ) : null}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
     </div>
   );
 }
