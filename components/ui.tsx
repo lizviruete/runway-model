@@ -1,6 +1,9 @@
 // Small shared presentational primitives.
+"use client";
 import type { ReactNode } from "react";
 import type { AccountType } from "@/lib/engine/types";
+import { sanitizeAmountText, toAmount } from "@/lib/numberInput";
+import { useNumericInput } from "./useNumericInput";
 
 /** Consistent per-account-type accent colors across chart + list. */
 export const TYPE_COLORS: Record<AccountType, string> = {
@@ -50,7 +53,6 @@ export function NumberField({
   value,
   onChange,
   prefix = "$",
-  step = 100,
   min = 0,
   hint,
   testId,
@@ -60,24 +62,28 @@ export function NumberField({
   value: number;
   onChange: (v: number) => void;
   prefix?: string;
-  step?: number;
   min?: number;
   hint?: ReactNode;
   testId?: string;
   hintTestId?: string;
 }) {
+  const input = useNumericInput({
+    value,
+    toText: String,
+    sanitize: sanitizeAmountText,
+    parse: (t) => toAmount(t, min),
+    onChange,
+  });
+
   return (
     <label className="block">
       <span className="mb-1 block text-xs font-medium text-zinc-600">{label}</span>
       <div className="flex items-center rounded-lg border border-zinc-300 bg-white focus-within:border-zinc-500 focus-within:ring-1 focus-within:ring-zinc-500">
         {prefix ? <span className="pl-2.5 text-sm text-zinc-400">{prefix}</span> : null}
         <input
-          type="number"
+          type="text"
           data-testid={testId}
-          value={Number.isFinite(value) ? value : 0}
-          step={step}
-          min={min}
-          onChange={(e) => onChange(e.target.value === "" ? 0 : Number(e.target.value))}
+          {...input}
           className="w-full bg-transparent px-2 py-1.5 text-sm tabular-nums text-zinc-900 outline-none"
         />
       </div>

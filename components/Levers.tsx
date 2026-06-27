@@ -6,9 +6,11 @@ import type { AssetSaleLever, FlowEvent, Levers as LeversType, Scenario } from "
 import { formatCurrency, formatMonthYear } from "@/lib/format";
 import { newExpenseId, newIncomeId } from "@/lib/scenario";
 import { SALARY_ID } from "@/lib/sample";
+import { percentToText, textToPercent } from "@/lib/numberInput";
 import { targetSpendHint } from "@/lib/spendDelta";
 import { FlowModal, type FlowDraft } from "./FlowModal";
 import { NumberField } from "./ui";
+import { blockSignKeys } from "./useNumericInput";
 
 interface Props {
   scenario: Scenario;
@@ -309,10 +311,10 @@ function AssetSale({ scenario, onChange }: Props) {
                 className="w-full rounded-lg border border-zinc-300 px-2 py-1.5 text-sm text-zinc-900 outline-none focus:border-zinc-500"
               />
             </label>
-            <NumberField label="Sale price" value={sale.salePrice} step={5000} onChange={(v) => patch({ salePrice: v })} />
+            <NumberField label="Sale price" value={sale.salePrice} onChange={(v) => patch({ salePrice: v })} />
             <PctField label="Closing costs" value={sale.closingCostPct} onChange={(v) => patch({ closingCostPct: v })} />
-            <NumberField label="Loan / lien payoff" value={sale.loanPayoff} step={5000} onChange={(v) => patch({ loanPayoff: v })} />
-            <NumberField label="Cost basis" value={sale.costBasis} step={5000} onChange={(v) => patch({ costBasis: v })} />
+            <NumberField label="Loan / lien payoff" value={sale.loanPayoff} onChange={(v) => patch({ loanPayoff: v })} />
+            <NumberField label="Cost basis" value={sale.costBasis} onChange={(v) => patch({ costBasis: v })} />
             <PctField label="Cap-gains rate" value={sale.capGainsRate} onChange={(v) => patch({ capGainsRate: v })} />
             <NumberField
               label="Monthly income stops"
@@ -368,10 +370,11 @@ function PctField({
       <div className="flex items-center rounded-lg border border-zinc-300 focus-within:border-zinc-500">
         <input
           type="number"
-          value={Math.round(value * 1000) / 10}
+          value={percentToText(value)}
           step={0.5}
           min={0}
-          onChange={(e) => onChange((Number(e.target.value) || 0) / 100)}
+          onKeyDown={blockSignKeys}
+          onChange={(e) => onChange(textToPercent(e.target.value))}
           className="w-full bg-transparent px-2 py-1.5 text-right text-sm tabular-nums text-zinc-900 outline-none"
         />
         <span className="pr-2 text-sm text-zinc-400">%</span>
