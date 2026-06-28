@@ -2,7 +2,7 @@
 "use client";
 import type { ReactNode } from "react";
 import type { AccountType } from "@/lib/engine/types";
-import { sanitizeAmountText, toAmount } from "@/lib/numberInput";
+import { formatAmount, sanitizeAmountText, toAmount } from "@/lib/numberInput";
 import { useNumericInput } from "./useNumericInput";
 
 /** Consistent per-account-type accent colors across chart + list. */
@@ -73,6 +73,7 @@ export function NumberField({
     sanitize: sanitizeAmountText,
     parse: (t) => toAmount(t, min),
     onChange,
+    format: formatAmount,
   });
 
   return (

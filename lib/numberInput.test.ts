@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatAmount,
   percentToText,
   sanitizeAmountText,
   sanitizePercentText,
@@ -89,10 +90,26 @@ describe("percent ↔ fraction round-trip", () => {
     expect(percentToText(0)).toBe("0");
   });
 
-  it("converts percent text back to a clamped fraction", () => {
+  it("converts percent text back to a clamped fraction, truncated to one decimal", () => {
     expect(textToPercent("6")).toBeCloseTo(0.06);
     expect(textToPercent("7.5")).toBeCloseTo(0.075);
+    expect(textToPercent("7.55")).toBeCloseTo(0.075); // 7.55 → 7.5 (truncate, never 7.6)
     expect(textToPercent("")).toBe(0);
     expect(textToPercent("-5")).toBe(0); // never negative
+  });
+
+  it("display and stored value agree after truncation (no 7.6-vs-7.55 drift)", () => {
+    const stored = textToPercent("7.55"); // 0.075
+    expect(percentToText(stored)).toBe("7.5"); // shown == stored
+  });
+});
+
+describe("formatAmount — comma-grouped resting display", () => {
+  it("groups thousands and keeps a clean integer round-trip", () => {
+    expect(formatAmount(12000)).toBe("12,000");
+    expect(formatAmount(0)).toBe("0");
+    expect(formatAmount(1234567)).toBe("1,234,567");
+    // The committed value behind the display stays a clean int.
+    expect(toAmount(formatAmount(12000).replace(/,/g, ""))).toBe(12000);
   });
 });

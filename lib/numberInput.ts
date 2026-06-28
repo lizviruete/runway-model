@@ -62,6 +62,12 @@ export function toAmount(text: string, min = 0): number {
   return Math.trunc(toClamped(text, min));
 }
 
+/** Resting display for an amount: comma-grouped integer (`12000 → "12,000"`).
+ *  Used only for display — the committed/stored value stays a clean integer. */
+export function formatAmount(value: number): string {
+  return Math.trunc(value).toLocaleString("en-US");
+}
+
 // --- percent helpers ---------------------------------------------------------
 // Percent fields model a fraction (0.06) but display a percentage (6 / 7.5),
 // keeping one decimal of precision.
@@ -71,7 +77,11 @@ export function percentToText(fraction: number): string {
   return String(Math.round(fraction * 1000) / 10);
 }
 
-/** Sanitized percent text → the stored fraction, clamped to `>= 0`. */
+/** Sanitized percent text → the stored fraction, clamped to `>= 0` and
+ *  TRUNCATED to one decimal of percent (`7.55 → 7.5 → 0.075`, never rounds up),
+ *  so the displayed % and the stored value always agree. */
 export function textToPercent(text: string): number {
-  return Math.max(0, (Number(text) || 0) / 100);
+  const pct = Math.max(0, Number(text) || 0);
+  const oneDecimal = Math.trunc(pct * 10) / 10; // truncate to one decimal %
+  return oneDecimal / 100;
 }

@@ -5,6 +5,7 @@ import { DEFAULT_CHART_MODE, type ChartMode } from "@/lib/chart";
 import { visibleMonthCount } from "@/lib/chartWindow";
 import { simulate } from "@/lib/engine/simulate";
 import type { Scenario } from "@/lib/engine/types";
+import { hasMeaningfulAmounts } from "@/lib/baseline";
 import { isCleanCapture } from "@/lib/captureMode";
 import { chooseInitSource, nextExampleMode, presetIdFromSearch } from "@/lib/exampleMode";
 import { getPreset, PRESETS, type Preset } from "@/lib/presets";
@@ -313,7 +314,7 @@ export function RunwayApp() {
           <Levers
             scenario={scenario}
             onChange={update}
-            baselineSpend={baselineScenario.levers.targetMonthlySpend}
+            baseline={hasMeaningfulAmounts(baselineScenario) ? baselineScenario.levers : null}
           />
         </Card>
 

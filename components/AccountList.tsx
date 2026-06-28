@@ -12,8 +12,10 @@ import {
   updateAccount,
 } from "@/lib/scenario";
 import {
+  formatAmount,
   percentToText,
   sanitizeAmountText,
+  sanitizePercentText,
   textToPercent,
   toAmount,
 } from "@/lib/numberInput";
@@ -29,6 +31,7 @@ function BalanceField({ value, onChange }: { value: number; onChange: (v: number
     sanitize: sanitizeAmountText,
     parse: (t) => toAmount(t, 0),
     onChange,
+    format: formatAmount,
   });
   return (
     <div className="flex shrink-0 items-center rounded border border-zinc-200">
@@ -229,7 +232,7 @@ function Pct({
           step={0.5}
           min={0}
           onKeyDown={blockSignKeys}
-          onChange={(e) => onChange(textToPercent(e.target.value))}
+          onChange={(e) => onChange(textToPercent(sanitizePercentText(e.target.value)))}
           className="w-full bg-transparent px-1.5 py-1 text-right text-sm tabular-nums text-zinc-900 outline-none"
         />
         <span className="pr-1.5 text-xs text-zinc-400">%</span>
