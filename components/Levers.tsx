@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { accountDisplayNames } from "@/lib/engine/accountName";
 import { isCreditType } from "@/lib/engine/defaults";
 import type { AssetSaleLever, FlowEvent, Levers as LeversType, Scenario } from "@/lib/engine/types";
 import { formatCurrency, formatMonthYear } from "@/lib/format";
@@ -306,6 +307,9 @@ function AssetSale({ scenario, onChange }: Props) {
   };
 
   const creditAccounts = scenario.accounts.filter((a) => isCreditType(a.type));
+  // Resolved over the FULL account list, not the credit-only filter, so this
+  // dropdown names a line exactly as the card, legend and ledger do.
+  const accountNames = accountDisplayNames(scenario.accounts);
   const netPreview = sale ? sale.salePrice - sale.salePrice * sale.closingCostPct - sale.loanPayoff : 0;
   const gainPreview = sale ? Math.max(0, sale.salePrice - sale.costBasis) * sale.capGainsRate : 0;
 
@@ -373,7 +377,7 @@ function AssetSale({ scenario, onChange }: Props) {
                 <option value="">None</option>
                 {creditAccounts.map((a) => (
                   <option key={a.id} value={a.id}>
-                    {a.name || "Credit line"}
+                    {accountNames.get(a.id)}
                   </option>
                 ))}
               </select>

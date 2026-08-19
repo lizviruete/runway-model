@@ -7,6 +7,7 @@
 // tax events. This is the audit-grade core.
 // =============================================================================
 
+import { accountDisplayName, accountDisplayNames } from "./accountName";
 import { isCreditType } from "./defaults";
 import {
   addDays,
@@ -75,6 +76,14 @@ export function simulate(scenario: Scenario): SimulationResult {
   const startMonth = firstOfMonth(timeline.start);
   const totalMonths = Math.max(1, monthsInclusive(timeline.start, timeline.end));
 
+  // Every account name the engine emits — timelines, ledger rows, transactions,
+  // scheduled taxes — is resolved once, here. The chart legend, the ledger and
+  // the CSVs all read this output, so they cannot drift apart: an account with
+  // an empty name field gets its type label instead of dropping out.
+  const displayNames = accountDisplayNames(scenario.accounts);
+  const nameOf = (account: Account): string =>
+    displayNames.get(account.id) ?? accountDisplayName(account);
+
   // ---- account state, ordered by waterfall priority -----------------------
   const states: AccountState[] = scenario.accounts.map((account) => {
     const isCredit = isCreditType(account.type);
@@ -102,7 +111,7 @@ export function simulate(scenario: Scenario): SimulationResult {
       s.account.id,
       {
         accountId: s.account.id,
-        name: s.account.name,
+        name: nameOf(s.account),
         type: s.account.type,
         balances: [],
       },
@@ -124,7 +133,7 @@ export function simulate(scenario: Scenario): SimulationResult {
       date,
       monthKey: monthKey(date),
       accountId: s.account.id,
-      accountName: s.account.name,
+      accountName: nameOf(s.account),
       category: cat,
       amount,
       label,
@@ -141,7 +150,7 @@ export function simulate(scenario: Scenario): SimulationResult {
       t.timing === "immediate" ? firstOfMonth(onDate) : followingApril15(onDate);
     scheduledTaxes.push({
       sourceAccountId: s.account.id,
-      sourceAccountName: s.account.name,
+      sourceAccountName: nameOf(s.account),
       withdrawalDate: onDate,
       dueDate,
       tax,
@@ -207,7 +216,7 @@ export function simulate(scenario: Scenario): SimulationResult {
       if (!s.isCredit || s.drawn <= 0) continue;
       const interest = s.drawn * (s.account.ongoingCost.annualRate / 12);
       if (interest <= 0) continue;
-      creditInterest.push({ name: s.account.name, interest });
+      creditInterest.push({ name: nameOf(s.account), interest });
     }
 
     // ---- 3. manual draws scheduled this month ----------------------------
@@ -262,7 +271,7 @@ export function simulate(scenario: Scenario): SimulationResult {
         if (tied && tiedPayoff > 0) {
           tied.drawn = 0;
           add(acc.get(tied.account.id)!.inflows, "assetSale", tiedPayoff);
-          tx(sale.saleDate, tied, "assetSale", tiedPayoff, `${sale.label} — pay off ${tied.account.name}`);
+          tx(sale.saleDate, tied, "assetSale", tiedPayoff, `${sale.label} — pay off ${nameOf(tied.account)}`);
         }
 
         // Net proceeds land in the operating account (an outflow if underwater).
@@ -400,7 +409,7 @@ export function simulate(scenario: Scenario): SimulationResult {
       tl.balances.push(s.isCredit ? tappable(s) : s.balance);
       return {
         accountId: s.account.id,
-        name: s.account.name,
+        name: nameOf(s.account),
         type: s.account.type,
         opening: a.opening,
         closing: netLiquid(s),

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { applyTypeDefaults, moveAccount, newAccount, renumber, updateAccount } from "./scenario";
+import { accountDisplayName } from "./engine/accountName";
+import { ACCOUNT_TYPE_META } from "./engine/defaults";
+import type { AccountType } from "./engine/types";
 import { createSampleScenario } from "./sample";
 
 describe("newAccount", () => {
@@ -13,6 +16,17 @@ describe("newAccount", () => {
   it("treats credit lines specially", () => {
     const c = newAccount("credit_line", 1);
     expect(c.ongoingCost.kind).toBe("credit_interest");
+  });
+
+  it("leaves the name empty for every type, and lets the fallback label it", () => {
+    // Deliberate: a prefilled name goes stale the moment the type changes, and
+    // is indistinguishable from one the user typed. The display-name fallback
+    // plus the card's placeholder cover it without storing anything.
+    for (const type of Object.keys(ACCOUNT_TYPE_META) as AccountType[]) {
+      const a = newAccount(type, 1);
+      expect(a.name).toBe("");
+      expect(accountDisplayName(a)).toBe(ACCOUNT_TYPE_META[type].label);
+    }
   });
 });
 

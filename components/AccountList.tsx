@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { accountDisplayNames } from "@/lib/engine/accountName";
 import { ACCOUNT_TYPE_META, ACCOUNT_TYPE_ORDER, isCreditType } from "@/lib/engine/defaults";
 import type { Account, AccountType, Scenario } from "@/lib/engine/types";
 import { formatCurrency } from "@/lib/format";
@@ -78,6 +79,11 @@ export function AccountList({ scenario, onChange }: Props) {
     .filter((a) => !isCreditType(a.type))
     .reduce((s, a) => s + a.balance, 0);
 
+  // Same accessor the engine uses, so a blank name shows the card the very
+  // label the legend and the ledger show for it — including the trailing index
+  // when two unnamed accounts share a type.
+  const displayNames = accountDisplayNames(accounts);
+
   return (
     <section data-testid="accounts">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -128,7 +134,7 @@ export function AccountList({ scenario, onChange }: Props) {
                 </span>
                 <input
                   value={account.name}
-                  placeholder={meta.label}
+                  placeholder={displayNames.get(account.id) ?? meta.label}
                   onChange={(e) => onChange(updateAccount(scenario, account.id, { name: e.target.value }))}
                   className="min-w-0 flex-1 rounded border border-transparent px-1.5 py-1 text-sm font-medium text-zinc-900 placeholder:text-zinc-400 hover:border-zinc-200 focus:border-zinc-400 focus:outline-none"
                 />

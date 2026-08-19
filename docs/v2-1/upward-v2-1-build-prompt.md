@@ -74,7 +74,7 @@ This is **V2.1**, a correctness-and-credibility release driven by a review from 
 
 - Introduce one shared display-name accessor, e.g. `accountDisplayName(account)`, returning the user's name when non-empty and falling back to the account **type** label otherwise.
 - Route the chart legend, the chart series, and the ledger rows through that one accessor so they cannot diverge again.
-- Prefill the name field from the selected type on account creation, still fully editable. Fallback and prefill are complementary; do both.
+- ~~Prefill the name field from the selected type on account creation, still fully editable. Fallback and prefill are complementary; do both.~~ **Struck — see ruling (l).** The prefill is not built: it bakes in a name that goes stale on a type change and cannot be told apart from one the user typed. `newAccount()` keeps `name: ""` for every type; the fallback plus the card's placeholder cover the need with no new state.
 - Per design package §5: never fall back to "Account 4" and never omit. Two unnamed accounts of the same type get a trailing index — "Brokerage / investment (2)".
 
 **Tests.** Blank name renders the type label in legend, series, and ledger. Renaming updates all three. Whitespace-only names are treated as empty. Duplicate-type indexing.
