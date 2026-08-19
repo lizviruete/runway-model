@@ -566,3 +566,100 @@ describe("presets", () => {
     expect(count(twice)).toBe(1);
   });
 });
+
+// =============================================================================
+
+describe("account display names in engine output (V2.1 item 1)", () => {
+  /** Checking runs dry in month 1, cascading into the (unnamed) second account,
+   *  which is taxable — so every name-carrying output is exercised at once. */
+  const cascading = (secondName: string) =>
+    scn({
+      accounts: [
+        acct({ type: "checking", balance: 1_000, priority: 1, id: "op", name: "Everyday" }),
+        acct({ type: "pretax", balance: 50_000, priority: 2, id: "blank", name: secondName }),
+      ],
+      levers: { targetMonthlySpend: 3_000 },
+    });
+
+  it("labels a blank-named account with its type label everywhere", () => {
+    const res = simulate(cascading(""));
+    const label = "Pre-tax retirement (Traditional IRA / 401k)";
+
+    // the chart series + legend read this
+    expect(res.accountTimelines.find((t) => t.accountId === "blank")!.name).toBe(label);
+    // the expanded-month ledger rows read this
+    for (const month of res.months) {
+      expect(month.accounts.find((a) => a.accountId === "blank")!.name).toBe(label);
+    }
+    // the transactions view + both CSVs read these
+    const txs = res.transactions.filter((t) => t.accountId === "blank");
+    expect(txs.length).toBeGreaterThan(0);
+    for (const t of txs) expect(t.accountName).toBe(label);
+
+    const taxes = res.scheduledTaxes.filter((t) => t.sourceAccountId === "blank");
+    expect(taxes.length).toBeGreaterThan(0);
+    for (const t of taxes) expect(t.sourceAccountName).toBe(label);
+  });
+
+  it("treats a whitespace-only name exactly like a blank one", () => {
+    const blank = simulate(cascading(""));
+    const spaces = simulate(cascading("   "));
+    const nameIn = (res: typeof blank) =>
+      res.accountTimelines.find((t) => t.accountId === "blank")!.name;
+    expect(nameIn(spaces)).toBe(nameIn(blank));
+  });
+
+  it("renaming updates the series, the ledger rows and the transactions together", () => {
+    const res = simulate(cascading("Vanguard 401k"));
+    expect(res.accountTimelines.find((t) => t.accountId === "blank")!.name).toBe("Vanguard 401k");
+    for (const month of res.months) {
+      expect(month.accounts.find((a) => a.accountId === "blank")!.name).toBe("Vanguard 401k");
+    }
+    for (const t of res.transactions.filter((t) => t.accountId === "blank")) {
+      expect(t.accountName).toBe("Vanguard 401k");
+    }
+    for (const t of res.scheduledTaxes.filter((t) => t.sourceAccountId === "blank")) {
+      expect(t.sourceAccountName).toBe("Vanguard 401k");
+    }
+  });
+
+  it("indexes two unnamed accounts of the same type rather than repeating a label", () => {
+    const res = simulate(
+      scn({
+        accounts: [
+          acct({ type: "checking", balance: 1_000, priority: 1, id: "op", name: "Everyday" }),
+          acct({ type: "brokerage", balance: 5_000, priority: 2, id: "b1", name: "" }),
+          acct({ type: "brokerage", balance: 5_000, priority: 3, id: "b2", name: "" }),
+        ],
+        levers: { targetMonthlySpend: 3_000 },
+      }),
+    );
+    const nameOf = (id: string) => res.accountTimelines.find((t) => t.accountId === id)!.name;
+    expect(nameOf("b1")).toBe("Brokerage / investment");
+    expect(nameOf("b2")).toBe("Brokerage / investment (2)");
+  });
+
+  it("names a blank credit line in the interest transaction it writes", () => {
+    // Credit interest posts to the OPERATING row, labelled with the line's name
+    // — a separate code path from the per-account name, and one that used to
+    // render "Interest — " with nothing after it.
+    const res = simulate(
+      scn({
+        accounts: [
+          acct({ type: "checking", balance: 100, priority: 1, id: "op", name: "Everyday" }),
+          acct({
+            type: "credit_line",
+            balance: 50_000,
+            priority: 2,
+            id: "line",
+            name: "  ",
+            manualDraw: { date: "2026-01-15", amount: 10_000 },
+          }),
+        ],
+      }),
+    );
+    const interest = res.transactions.filter((t) => t.category === "creditInterest");
+    expect(interest.length).toBeGreaterThan(0);
+    for (const t of interest) expect(t.label).toBe("Interest — Credit line / HELOC");
+  });
+});

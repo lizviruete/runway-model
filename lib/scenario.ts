@@ -17,7 +17,12 @@ export function newAccount(type: AccountType, priority: number): Account {
   const meta = isCreditType(type);
   return {
     id: newId("acc"),
-    name: type === "other" ? "New account" : "",
+    // Left empty on purpose: `accountDisplayName` resolves an unnamed account to
+    // its type label, and the card's placeholder shows that same resolved name.
+    // Prefilling would bake in a name that goes stale the moment the type
+    // changes — and there would be nothing to distinguish it from one the user
+    // typed, so we could not safely refresh it either.
+    name: "",
     type,
     balance: meta ? 10_000 : 5_000,
     depletionPriority: priority,
@@ -40,7 +45,9 @@ export function moveAccount(accounts: Account[], from: number, to: number): Acco
   return renumber(next);
 }
 
-/** When an account's type changes, re-default its tax/cost implications. */
+/** When an account's type changes, re-default its tax/cost implications.
+ *  The name is left alone — a name the user typed is never overwritten, and an
+ *  empty one keeps falling back to whatever the new type is called. */
 export function applyTypeDefaults(account: Account, type: AccountType): Account {
   return {
     ...account,
