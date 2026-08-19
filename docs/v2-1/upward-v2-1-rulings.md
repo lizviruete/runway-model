@@ -151,11 +151,31 @@ Item 7's own rule is *emphasis reserved for state changes*. By that rule, vs-bas
 
 ---
 
+## l · Name prefill dropped — the fallback plus the placeholder covers it
+
+Raised during item 1's build. The build prompt instructed *"Prefill the name field from the selected type on account creation… Fallback and prefill are complementary; do both."*
+
+**Ruling: do not prefill.** `newAccount()` keeps `name: ""` for every type, including `other` (which previously seeded `"New account"`). The build prompt's line is struck.
+
+Reasoning: prefill is what *creates* a stale-name problem. A name prefilled as "Savings" survives a type change to Brokerage, and nothing distinguishes it from a name the user typed — so it cannot safely be refreshed either. Resolving that would mean storing which names are ours, which is new state for no gain.
+
+The fallback plus the card's placeholder covers the same ground with none of it:
+
+- adding an account leaves the field empty, with a placeholder showing the resolved display name;
+- changing the type updates the placeholder, the legend and the ledger together;
+- a name the user typed is never overwritten, because there is nothing to overwrite it with.
+
+Smaller diff, no new state, and the `other` type stops being a special case. A test in `lib/scenario.test.ts` locks the empty name so it is not "helpfully" re-added.
+
+This does **not** change the fallback itself, which is the item's actual fix, or the placeholder change on the card — both ship.
+
+---
+
 ## Also confirmed
 
 - **The build prompt's order wins** over the design package README's BUILD ORDER block, which uses its own numbering. Read the README's order as already-translated.
-- **The design package's "Do not change" list is partly superseded** — by item 10 (OUT column, cash-zero figure), item 5 (Exclude button on the card face), and item 1 (name prefill). Each is sanctioned by its own section. Where an item's section and the do-not-change list disagree, **the item wins.**
-- On name prefill: `applyTypeDefaults()` should **not** re-prefill on a type change. Never overwrite a name the user typed.
+- **The design package's "Do not change" list is partly superseded** — by item 10 (OUT column, cash-zero figure), item 5 (Exclude button on the card face), and item 1 (the name field's placeholder). Each is sanctioned by its own section. Where an item's section and the do-not-change list disagree, **the item wins.**
+- On names: `applyTypeDefaults()` does **not** touch the name on a type change. Never overwrite a name the user typed. Superseded in part by ruling (l) — there is no prefill to re-apply, so an unnamed account simply keeps falling back to whatever the new type is called.
 
 ---
 
