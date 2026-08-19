@@ -57,6 +57,104 @@ describe("accountDisplayName — the single-account form", () => {
   });
 });
 
+describe("fallbacks never collide with a name the user typed", () => {
+  it("indexes past a named account of the same type (the QA repro)", () => {
+    // Seeded "Savings" + a blank second savings account used to render
+    // "Savings · Savings" in the legend, indistinguishable from each other.
+    expect(names([acct("a", "savings", "Savings"), acct("b", "savings", "")])).toEqual({
+      a: "Savings",
+      b: "Savings (2)",
+    });
+  });
+
+  it("keeps counting past a named account for every later fallback", () => {
+    expect(
+      names([
+        acct("a", "savings", "Savings"),
+        acct("b", "savings", ""),
+        acct("c", "savings", ""),
+      ]),
+    ).toEqual({ a: "Savings", b: "Savings (2)", c: "Savings (3)" });
+  });
+
+  it("skips a named account that already looks like an indexed fallback", () => {
+    // "Savings (2)" is taken, so the second fallback jumps to (3) rather than
+    // duplicating it. The named account is never renamed to make room.
+    expect(
+      names([
+        acct("a", "savings", "Savings (2)"),
+        acct("b", "savings", ""),
+        acct("c", "savings", ""),
+      ]),
+    ).toEqual({ a: "Savings (2)", b: "Savings", c: "Savings (3)" });
+  });
+
+  it("skips a run of named accounts occupying the low indices", () => {
+    expect(
+      names([
+        acct("a", "savings", "Savings"),
+        acct("b", "savings", "Savings (2)"),
+        acct("c", "savings", ""),
+      ]),
+    ).toEqual({ a: "Savings", b: "Savings (2)", c: "Savings (3)" });
+  });
+
+  it("blocks a fallback against a name that appears LATER in the list", () => {
+    // The claim set is collected across the whole list first, so resolution
+    // does not depend on where the named account happens to sit.
+    expect(names([acct("b", "savings", ""), acct("a", "savings", "Savings")])).toEqual({
+      b: "Savings (2)",
+      a: "Savings",
+    });
+  });
+
+  it("blocks a collision across DIFFERENT types", () => {
+    // A checking account the user named "Savings" still collides with the
+    // savings type label in the legend, which cannot see the type.
+    expect(names([acct("a", "checking", "Savings"), acct("b", "savings", "")])).toEqual({
+      a: "Savings",
+      b: "Savings (2)",
+    });
+  });
+
+  it("never renames a named account to resolve a collision", () => {
+    const resolved = names([
+      acct("a", "savings", "Savings"),
+      acct("b", "savings", ""),
+      acct("c", "hysa", "High-yield savings"),
+      acct("d", "hysa", ""),
+    ]);
+    expect(resolved.a).toBe("Savings");
+    expect(resolved.c).toBe("High-yield savings");
+    expect(resolved.b).toBe("Savings (2)");
+    expect(resolved.d).toBe("High-yield savings (2)");
+  });
+
+  it("hands out no duplicate display name when the typed names are distinct", () => {
+    const accounts = [
+      acct("a", "savings", "Savings"),
+      acct("b", "savings", ""),
+      acct("c", "savings", ""),
+      acct("d", "checking", "Savings (3)"),
+      acct("e", "checking", ""),
+      acct("f", "brokerage", ""),
+      acct("g", "brokerage", "  "),
+    ];
+    const resolved = [...accountDisplayNames(accounts).values()];
+    expect(resolved).toHaveLength(accounts.length);
+    expect(new Set(resolved).size).toBe(accounts.length);
+  });
+
+  it("leaves duplicate names the user typed alone", () => {
+    // Two accounts genuinely named the same thing is the user's own doing, and
+    // renaming either one would be worse than the ambiguity.
+    expect(names([acct("a", "savings", "Joint"), acct("b", "brokerage", "Joint")])).toEqual({
+      a: "Joint",
+      b: "Joint",
+    });
+  });
+});
+
 describe("accountDisplayNames — disambiguation across a list", () => {
   it("indexes the second and later unnamed accounts of the same type", () => {
     expect(

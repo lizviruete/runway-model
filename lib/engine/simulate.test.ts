@@ -639,6 +639,25 @@ describe("account display names in engine output (V2.1 item 1)", () => {
     expect(nameOf("b2")).toBe("Brokerage / investment (2)");
   });
 
+  it("keeps the legend distinct when a fallback would collide with a typed name", () => {
+    // QA repro: a seeded account named "Savings" plus a blank second savings
+    // account rendered "Savings · Savings" in the legend — the named account
+    // and the fallback were indistinguishable.
+    const res = simulate(
+      scn({
+        accounts: [
+          acct({ type: "checking", balance: 1_000, priority: 1, id: "op", name: "Checking" }),
+          acct({ type: "savings", balance: 4_000, priority: 2, id: "named", name: "Savings" }),
+          acct({ type: "savings", balance: 4_000, priority: 3, id: "blank", name: "" }),
+        ],
+        levers: { targetMonthlySpend: 3_000 },
+      }),
+    );
+    const legend = res.accountTimelines.map((t) => t.name);
+    expect(legend).toEqual(["Checking", "Savings", "Savings (2)"]);
+    expect(new Set(legend).size).toBe(legend.length);
+  });
+
   it("names a blank credit line in the interest transaction it writes", () => {
     // Credit interest posts to the OPERATING row, labelled with the line's name
     // — a separate code path from the per-account name, and one that used to
