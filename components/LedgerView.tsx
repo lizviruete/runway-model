@@ -5,6 +5,15 @@ import type { LedgerCategory, SimulationResult } from "@/lib/engine/types";
 import { monthlyRowsCSV, transactionsCSV } from "@/lib/exporters";
 import { formatCurrency, formatDate, formatMonthYear } from "@/lib/format";
 import { excludedLedgerLine } from "@/lib/engine/exclusion";
+import {
+  cashFlowDelta,
+  cashFlowSummary,
+  incomeResumesMonths,
+  netCaret,
+  netCellLabel,
+  netCellText,
+} from "@/lib/cashFlowSummary";
+import type { Scenario } from "@/lib/engine/types";
 import { catLabel, isRedundantTransactionLabel } from "@/lib/ledgerLabels";
 import { SectionTitle } from "./ui";
 
@@ -24,7 +33,18 @@ function Amount({ value }: { value: number }) {
   return <span className={`tabular-nums ${color}`}>{formatCurrency(value)}</span>;
 }
 
-export function LedgerView({ result }: { result: SimulationResult }) {
+export function LedgerView({
+  result,
+  baseline,
+  scenario,
+}: {
+  result: SimulationResult;
+  baseline: SimulationResult;
+  scenario: Scenario;
+}) {
+  const summary = cashFlowSummary(result.months);
+  const delta = cashFlowDelta(result.months, baseline.months);
+  const resumes = incomeResumesMonths(scenario, result.months);
   const [mode, setMode] = useState<"monthly" | "transactions">("monthly");
   const [openMonth, setOpenMonth] = useState<string | null>(null);
 
@@ -69,6 +89,24 @@ export function LedgerView({ result }: { result: SimulationResult }) {
         </div>
       </div>
 
+      {/* THE SUMMARY BAR. Burn rate is a rate, and a rate belongs in one place,
+          stated once — repeating it as twelve coloured numbers does not add
+          information, it adds twelve reminders. In a live region so pulling a
+          lever announces the new rate and turnaround month: the fastest
+          possible answer to "did that help?" without sight. Hidden entirely
+          when there is no data, rather than showing "$0/mo". */}
+      {summary ? (
+        <div
+          data-testid="cash-flow-summary"
+          className="mb-3.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-[10px] border border-zinc-200 bg-zinc-50/60 px-3.5 py-3"
+        >
+          <p aria-live="polite" className="text-[14.5px] tabular-nums text-zinc-900">
+            {summary.text}
+          </p>
+          {delta ? <p className="text-[13px] text-zinc-500">{delta}</p> : null}
+        </div>
+      ) : null}
+
       {mode === "monthly" ? (
         <div className="max-h-[28rem] overflow-y-auto rounded-lg border border-zinc-200">
           <table className="w-full text-sm">
@@ -78,21 +116,39 @@ export function LedgerView({ result }: { result: SimulationResult }) {
                 <th className="px-3 py-2 text-right font-medium">Opening</th>
                 <th className="px-3 py-2 text-right font-medium">In</th>
                 <th className="px-3 py-2 text-right font-medium">Out</th>
+                <th className="px-3 py-2 text-right font-medium">Net</th>
                 <th className="px-3 py-2 text-right font-medium">Closing</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
               {result.months.map((m) => {
                 const open = openMonth === m.monthKey;
+                // Emphasis exists in exactly ONE place: the month the sign
+                // changes. Nothing else is emphasised, ever.
+                const isTurn = summary?.turnaroundMonth === m.monthKey;
+                const chip = isTurn
+                  ? summary!.turnaroundChip
+                  : resumes.has(m.monthKey)
+                    ? "INCOME RESUMES"
+                    : null;
                 return (
                   <Fragment key={m.monthKey}>
                     <tr
                       onClick={() => setOpenMonth(open ? null : m.monthKey)}
-                      className="cursor-pointer hover:bg-zinc-50"
+                      className={`cursor-pointer hover:bg-zinc-50 ${isTurn ? "bg-zinc-50" : ""}`}
                     >
                       <td className="px-3 py-2 font-medium text-zinc-700">
                         <span className="mr-1 text-zinc-400">{open ? "▾" : "▸"}</span>
                         {formatMonthYear(m.date)}
+                        {/* The turnaround is marked by a WORD, not a hue. */}
+                        {chip ? (
+                          <span
+                            data-testid="ledger-chip"
+                            className="ml-2 rounded-[5px] border border-zinc-300 bg-white px-1.5 py-px text-[11px] font-semibold tracking-wide text-zinc-900"
+                          >
+                            {chip}
+                          </span>
+                        ) : null}
                       </td>
                       <td className="px-3 py-2 text-right"><Amount value={m.totals.opening} /></td>
                       <td className="px-3 py-2 text-right text-emerald-600 tabular-nums">
@@ -101,11 +157,28 @@ export function LedgerView({ result }: { result: SimulationResult }) {
                       <td className="px-3 py-2 text-right text-red-600 tabular-nums">
                         {m.totals.outflow ? `−${formatCurrency(m.totals.outflow)}` : "—"}
                       </td>
+                      {/* NET — sign, caret, magnitude, tabular. NO COLOUR
+                          CODING AT ALL, which also makes it immune to every
+                          form of colour blindness. Deficit is the expected
+                          state during an income gap, so it gets the ordinary
+                          treatment: ordinariness is the design. */}
+                      <td
+                        data-testid="ledger-net"
+                        aria-label={netCellLabel(m.totals.net)}
+                        className={`px-3 py-2 text-right tabular-nums ${
+                          isTurn ? "font-semibold text-zinc-900" : "text-slate-700"
+                        }`}
+                      >
+                        <span aria-hidden="true" className="mr-1.5 text-[11px] text-zinc-400">
+                          {netCaret(m.totals.net)}
+                        </span>
+                        {netCellText(m.totals.net)}
+                      </td>
                       <td className="px-3 py-2 text-right font-medium"><Amount value={m.totals.closing} /></td>
                     </tr>
                     {open ? (
                       <tr className="bg-zinc-50/60">
-                        <td colSpan={5} className="px-3 py-2">
+                        <td colSpan={6} className="px-3 py-2">
                           <div className="space-y-1.5">
                             {m.accounts
                               .filter(

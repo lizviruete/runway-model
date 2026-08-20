@@ -381,7 +381,7 @@ export function RunwayApp() {
 
       {/* Ledger — full width at the bottom. */}
       <Card className="mt-6 p-5">
-        <LedgerView result={result} />
+        <LedgerView result={result} baseline={baseline} scenario={scenario} />
       </Card>
 
       <footer data-chrome className="mt-10 text-center text-xs text-zinc-400">

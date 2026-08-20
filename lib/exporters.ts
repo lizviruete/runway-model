@@ -34,12 +34,15 @@ function toCSV(rows: (string | number)[][]): string {
  * as a signed net (inflow − outflow), plus opening/closing.
  */
 export function monthlyRowsCSV(result: SimulationResult): string {
-  const header = ["month", "account", "type", "opening", ...CATEGORIES, "closing"];
+  const header = ["month", "account", "type", "opening", ...CATEGORIES, "closing", "net"];
   const rows: (string | number)[][] = [header];
   for (const m of result.months) {
     for (const a of m.accounts) {
       const cats = CATEGORIES.map((c) => (a.inflows[c] ?? 0) - (a.outflows[c] ?? 0));
-      rows.push([m.monthKey, a.name, a.type, a.opening, ...cats, a.closing]);
+      // `net` is the MONTH's cash flow, repeated on each of its account rows —
+      // it is a month-level fact, not an account-level one, and the same figure
+      // the summary bar and the chart tooltip read (ruling n).
+      rows.push([m.monthKey, a.name, a.type, a.opening, ...cats, a.closing, m.totals.net]);
     }
   }
   return toCSV(rows);
