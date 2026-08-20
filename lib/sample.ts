@@ -1,14 +1,25 @@
 // =============================================================================
-// The fictional sample scenario shipped pre-loaded.
+// The fictional example scenario shipped pre-loaded.
 //
-// Deliberately a generous, financially healthy persona so the demo reads well
-// and NO real personal financial data lives in the repo. Users replace it with
-// their own accounts and levers.
+// DE-PERSONALIZED (item 8). Three generic accounts, round illustrative numbers,
+// and nothing traceable to any real person's financial structure. The earlier
+// seed carried a HELOC, a brokerage, a Roth/pre-tax IRA split and an asset sale
+// — a specific balance sheet, and more surface than a demo needs. Those types
+// all stay SUPPORTED; they have simply left the demo.
+//
+// Each account is here to show one thing:
+//
+//   Everyday Checking     the neutral baseline — no return, no tax, no penalty
+//   High-Yield Savings    a rate of return (4.0%), earning while it is spent
+//   401(k)                a penalty-free date, and tax on withdrawal
+//
+// THE ~9-MONTH CRUNCH IS DELIBERATE AND STAYS. The tension is what makes the
+// levers worth pulling; a comfortable example demonstrates nothing.
 //
 // The scenario is anchored to an "as of" date and every event is expressed
-// RELATIVE to it, so the sample always tells the same ~9-month-crunch story no
-// matter when someone opens the app. The app passes the real "today"; tests and
-// SSR use the canonical SAMPLE_AS_OF so the scenario stays deterministic.
+// RELATIVE to it, so the example always tells the same story no matter when
+// someone opens the app. The app passes the real "today"; tests and SSR use the
+// canonical SAMPLE_AS_OF so the scenario stays deterministic.
 // =============================================================================
 
 import { addMonths, daysInMonth, firstOfMonth, parseISO, toISO } from "./engine/dates";
@@ -62,31 +73,32 @@ export function createSampleScenario(asOf: string = SAMPLE_AS_OF): Scenario {
 
   return {
     id: "sample",
-    name: "Sample User — recent transition",
+    name: "Example — income has paused",
     version: SCENARIO_VERSION,
     createdDate: start,
-    // 60-month (5-year) horizon from the anchor. The baseline still craters at
+    // 60-month (5-year) horizon from the anchor. The example still craters at
     // ~9 months, but the long horizon means single-lever improvements resolve
     // to concrete cash-zero dates, and "beyond horizon" only shows for genuinely
     // cash-flow-positive scenarios (e.g. the "Landed a new role" preset). The
-    // chart x-axis auto-scales to the meaningful window. Modest balances make
-    // the waterfall cascade checking → savings → HYSA → brokerage → Roth →
-    // pre-tax IRA before zero, so both the brokerage cap-gains and the pre-tax
-    // tax+penalty events show.
+    // chart x-axis auto-scales to the meaningful window.
     timeline: { start, end: endOfMonth(addMonths(start, 59)) },
+    // Three accounts, tapped in this order. The waterfall runs
+    // checking → high-yield savings → 401(k), so the tax-and-penalty events on
+    // the last one are reached inside the crunch rather than off the horizon.
     accounts: [
-      account("acc-checking", "Everyday Checking", "checking", 3_000, 1),
-      account("acc-savings", "Savings", "savings", 4_000, 2),
-      account("acc-hysa", "High-Yield Savings", "hysa", 4_000, 3),
-      account("acc-brokerage", "Brokerage", "brokerage", 5_000, 4),
-      account("acc-roth", "Roth IRA", "roth", 3_000, 5),
-      account("acc-pretax", "Pre-tax IRA", "pretax", 3_000, 6),
-      account("acc-heloc", "HELOC", "credit_line", 2_000, 7),
+      account("acc-checking", "Everyday Checking", "checking", 5_000, 1),
+      account("acc-hysa", "High-Yield Savings", "hysa", 10_000, 2),
+      account("acc-401k", "401(k)", "pretax", 15_000, 3, {
+        // Placed so the 401(k) is tapped on BOTH sides of it: the first two
+        // withdrawals carry the 10% early penalty and the next two do not, so
+        // one ledger shows the difference the date makes.
+        penaltyFreeMonth: monthStart(8).slice(0, 7),
+      }),
     ],
     levers: {
       incomeEvents: [
         {
-          // Core always-on lever: $0 because income has paused (a layoff).
+          // Core always-on lever: $0 because income has paused.
           id: SALARY_ID,
           label: "Salary / primary income",
           kind: "recurring",
@@ -97,7 +109,7 @@ export function createSampleScenario(asOf: string = SAMPLE_AS_OF): Scenario {
           id: "inc-severance",
           label: "Severance",
           kind: "recurring",
-          amount: 9_000,
+          amount: 8_000,
           startDate: start,
           endDate: endOfMonth(addMonths(start, 1)), // ~2 months out
         },
@@ -105,30 +117,22 @@ export function createSampleScenario(asOf: string = SAMPLE_AS_OF): Scenario {
           id: "inc-unemployment",
           label: "Unemployment benefit",
           kind: "recurring",
-          amount: 3_900,
+          amount: 3_000,
           startDate: monthStart(2),
           endDate: endOfMonth(addMonths(start, 7)), // ~6 months
-        },
-        {
-          // A one-off inflow (was the standalone one-time section).
-          id: "one-asset-sale",
-          label: "Asset sale",
-          kind: "oneoff",
-          amount: 8_000,
-          startDate: monthStart(1), // anchor's month 2
         },
       ],
       // Housing and living spend are the two pinned, seeded expense lines.
       // The sublet is a step change ON the housing line, not a separate one.
       expenseEvents: [
-        seededLine("housing", 2_800, start, {
-          // Sublet drops housing to $1,400 from the anchor's month 3.
-          stepChange: { date: monthStart(2), newAmount: 1_400 },
+        seededLine("housing", 3_000, start, {
+          // Sublet halves housing from the anchor's month 3.
+          stepChange: { date: monthStart(2), newAmount: 1_500 },
         }),
-        seededLine("living", 6_500, start),
+        seededLine("living", 5_000, start),
       ],
     },
-    baselineMonthlySpend: 6_500,
+    baselineMonthlySpend: 5_000,
   };
 }
 
