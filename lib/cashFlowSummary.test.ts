@@ -11,19 +11,21 @@ import type { MonthLedger, Scenario } from "./engine/types";
 import { seededLine } from "./engine/expenses";
 import { SCENARIO_VERSION } from "./migrate";
 
-/** Months carrying only what the summary reads: the key, the date and the net. */
-const M = (monthKey: string, net: number): MonthLedger => ({
+/** Months carrying only what the summary reads: key, date, net, one-time part. */
+const M = (monthKey: string, net: number, oneTimeInflow = 0): MonthLedger => ({
   monthKey,
   date: `${monthKey}-01`,
   accounts: [],
-  totals: { opening: 0, inflow: 0, outflow: 0, net, closing: 0 },
+  totals: { opening: 0, inflow: 0, outflow: 0, net, oneTimeInflow, closing: 0 },
 });
 
-const series = (start: number, nets: number[]) =>
+/** `nets` may be a plain number, or [net, oneTimeInflow]. */
+const series = (start: number, nets: (number | [number, number])[]) =>
   nets.map((n, i) => {
     const month = ((start + i - 1) % 12) + 1;
     const year = 2026 + Math.floor((start + i - 1) / 12);
-    return M(`${year}-${String(month).padStart(2, "0")}`, n);
+    const key = `${year}-${String(month).padStart(2, "0")}`;
+    return Array.isArray(n) ? M(key, n[0], n[1]) : M(key, n);
   });
 
 describe("§6's six copy states, verbatim", () => {
@@ -94,6 +96,42 @@ describe("§6's six copy states, verbatim", () => {
     const turns = cashFlowSummary(series(10, [1_200, 0, -500]))!;
     expect(turns.turnaroundMonth).toBe("2026-12");
     expect(turns.turnaroundChip).toBe("TURNS NEGATIVE");
+  });
+
+  it("a ONE-OFF SPIKE is not a turnaround — ruling (y)", () => {
+    // The example scenario's $8,000 asset sale made one month net positive and
+    // the bar read "turns positive Sep 2026", which is false hope handed to
+    // someone in distress. A lump sum extends your RUNWAY; it does not change
+    // what your months look like.
+    const s = cashFlowSummary(series(10, [-7_900, [100, 8_000], -7_900, -7_900]))!;
+    expect(s.turnaroundMonth).toBeNull();
+    expect(s.text).toBe("Burning about $7,900/mo · no month turns positive in this view");
+  });
+
+  it("a GENUINE recurring resumption IS a turnaround, even if a later month dips", () => {
+    // The case persistence-to-end-of-window would have failed: income really
+    // resumes, then one bad month lands later. That is real good news and the
+    // bar must not understate it.
+    const s = cashFlowSummary(series(10, [-7_900, -7_900, 1_200, 1_200, -400, 1_200]))!;
+    expect(s.turnaroundMonth).toBe("2026-12");
+    expect(s.turnaroundChip).toBe("TURNS POSITIVE");
+    // The later −$400 dip widens the RATE to a range, correctly — but it does
+    // not retract the turnaround, which is the whole point of the case.
+    expect(s.text).toBe("Burning $400–$7,900/mo · turns positive Dec 2026");
+  });
+
+  it("still turns positive when a recurring month ALSO carries a one-off", () => {
+    // Excluding the one-off must not hide a month that was positive anyway.
+    const s = cashFlowSummary(series(10, [-7_900, [9_200, 8_000]]))!;
+    expect(s.turnaroundMonth).toBe("2026-11"); // 9,200 − 8,000 = +1,200 recurring
+  });
+
+  it("THE RATE still includes the spike, shown as a range — a deliberate asymmetry", () => {
+    // The range is already honest about variation. The turnaround is a DATE
+    // CLAIM and has to mean something durable, so only it excludes one-offs.
+    const s = cashFlowSummary(series(10, [-7_900, [100, 8_000], -7_900, -2_000]))!;
+    expect(s.text).toContain("–"); // a range, spanning the spike month
+    expect(s.turnaroundMonth).toBeNull();
   });
 
   it("keeps 'about' — a projection rounded in language beats false precision", () => {

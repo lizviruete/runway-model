@@ -86,9 +86,16 @@ export function cashFlowSummary(months: MonthLedger[]): CashFlowSummary | null {
   const inRegime = nets.filter((n) => (effective === "burning" ? n < 0 : n > 0));
   const rate = rateClause(effective, inRegime.length ? inRegime : nets);
 
-  // The turnaround is the first month whose sign OPPOSES the regime. Zero is
-  // not a turnaround: flat is not positive.
-  const turnIndex = nets.findIndex((n) => (effective === "burning" ? n > 0 : n < 0));
+  // THE TURNAROUND IS A CHANGE IN THE RECURRING POSITION (ruling y), so a
+  // month qualifies only if it would still oppose the regime with one-time
+  // inflows excluded. A lump sum extends your RUNWAY — which the runway figure
+  // and the cash-zero date already report — but it does not change what your
+  // months look like, and "turns positive Sep 2026" for a one-month blip is
+  // false hope handed to someone in financial distress.
+  //
+  // Zero is not a turnaround either: flat is not positive.
+  const recurring = months.map((m) => m.totals.net - m.totals.oneTimeInflow);
+  const turnIndex = recurring.findIndex((n) => (effective === "burning" ? n > 0 : n < 0));
   const turnaroundMonth = turnIndex === -1 ? null : months[turnIndex].monthKey;
   const turnaroundChip =
     turnIndex === -1 ? null : effective === "burning" ? "TURNS POSITIVE" : "TURNS NEGATIVE";

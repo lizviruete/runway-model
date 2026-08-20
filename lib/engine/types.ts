@@ -327,6 +327,17 @@ export interface MonthLedger {
      * each deriving it, so they cannot disagree about what a month netted.
      */
     net: number;
+    /**
+     * The part of `inflow` that will not recur: one-off income events and
+     * asset-sale proceeds.
+     *
+     * A TURNAROUND IS A CHANGE IN YOUR RECURRING POSITION, not a one-off
+     * top-up (ruling y). `net - oneTimeInflow` is the month's recurring
+     * position, and only a month positive on THAT basis counts as the month
+     * things turned around. A lump sum extends your RUNWAY, which the runway
+     * figure and cash-zero date already report.
+     */
+    oneTimeInflow: number;
     closing: number; // total net liquid at month end
   };
 }

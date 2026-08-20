@@ -154,7 +154,7 @@ function emptyResult(
       monthKey: monthKey(date),
       date,
       accounts: states.map(accountMonth),
-      totals: { opening: 0, inflow: 0, outflow: 0, net: 0, closing: 0 },
+      totals: { opening: 0, inflow: 0, outflow: 0, net: 0, oneTimeInflow: 0, closing: 0 },
     })),
     projection: monthStarts.map((date) => ({
       date,
@@ -337,6 +337,8 @@ export function simulate(scenario: Scenario): SimulationResult {
 
     let inflowTotal = 0;
     let outflowTotal = 0;
+    // The part of inflow that will not recur — see MonthLedger.totals.
+    let oneTimeInflow = 0;
 
     // ---- 1. expected return (accrues into the account) --------------------
     // Runs BEFORE any withdrawal, so it is computed on the OPENING balance —
@@ -397,6 +399,7 @@ export function simulate(scenario: Scenario): SimulationResult {
       }
       if (amt <= 0) continue;
       inflowTotal += amt;
+      if (ev.kind === "oneoff") oneTimeInflow += amt;
       operating.balance += amt;
       add(acc.get(operating.account.id)!.inflows, "income", amt);
       // Income is entered by the user, never modeled.
@@ -441,6 +444,7 @@ export function simulate(scenario: Scenario): SimulationResult {
         operating.balance += net;
         if (net >= 0) {
           inflowTotal += net;
+          oneTimeInflow += net; // a sale happens once
           add(acc.get(operating.account.id)!.inflows, "assetSale", net);
         } else {
           outflowTotal += -net;
@@ -596,6 +600,7 @@ export function simulate(scenario: Scenario): SimulationResult {
         // The month's cash flow, computed once here so the chart tooltip and
         // the ledger's NET column read the same number.
         net: inflowTotal - outflowTotal,
+        oneTimeInflow,
         closing,
       },
     });

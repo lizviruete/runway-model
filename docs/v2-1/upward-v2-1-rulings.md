@@ -376,6 +376,31 @@ Two, both taken deliberately, both recorded so a later reader does not "restore"
 
 ---
 
+## y · A turnaround is a change in your RECURRING position, not a one-off top-up
+
+On the example scenario, item 7's summary bar read **"turns positive Sep 2026"**. September nets +$7,769 — entirely because of an $8,000 one-off asset sale. Its recurring position is **−$231**, and October returns to −$3,931 and never recovers.
+
+**Ruling: a month qualifies as the turnaround only if its net would still oppose the regime with one-time inflows excluded.** The engine records `MonthLedger.totals.oneTimeInflow` (one-off income events and asset-sale proceeds), so `net − oneTimeInflow` is the recurring position and the turnaround reads from that. Per ruling (n) it is recorded once, in the engine, rather than re-derived.
+
+**Why not persistence-to-end-of-window.** That rule fails the case where income genuinely resumes in March and one bad month lands in June — it would report "no month turns positive" and understate real good news. Option (b) has no equivalent failure, because **a one-off extends your RUNWAY**, which the runway figure and the cash-zero date already report. The turnaround clause reports when your **monthly position** flips. Conflating them tells someone their situation improved when only their balance did.
+
+And "turns positive Sep 2026" for a one-month blip is **false hope handed to someone in financial distress** — the worst direction to be wrong in, which rules out simply accepting it.
+
+### The asymmetry is deliberate
+
+**The rate still includes the spike**, shown as a range. The range is already honest about variation, and a range makes no claim about the future. **The turnaround is a date claim** and has to mean something durable. Different obligations, different treatment.
+
+### The pattern — a design package's worked example is not a test case
+
+This is the **second time §6's own example contradicted its own copy states**:
+
+1. **Gross vs net burn rate** — the summary reads "Burning about $7,900/mo" beside a row reading `IN $3,913 · OUT −$7,900 · NET −$3,987`, pairing a gross rate with a net turnaround in one sentence.
+2. **This** — the six states were written assuming a single sign change, and the package's own example scenario violates that assumption with a one-off inflow.
+
+**Treat a design package's worked example as illustrative, not normative.** The copy states are the specification; the example is a sketch drawn to show them off, and it can quietly encode assumptions the states do not hold to. Where they disagree, work out which is true rather than implementing the example.
+
+---
+
 ## Also confirmed
 
 - **The build prompt's order wins** over the design package README's BUILD ORDER block, which uses its own numbering. Read the README's order as already-translated.
