@@ -2,6 +2,7 @@
 // All access is SSR-guarded and tolerant of malformed/blocked storage.
 
 import type { Scenario } from "./engine/types";
+import { migrateScenario, stampVersion } from "./migrate";
 
 const SAVED_KEY = "runway:saved";
 const LAST_KEY = "runway:last";
@@ -54,8 +55,24 @@ function write(key: string, value: unknown): void {
   }
 }
 
+/**
+ * HYDRATION BOUNDARY 2 of 5 — `runway:saved`.
+ *
+ * The only boundary holding an ARRAY, and the only one that migrates per entry:
+ * one corrupt saved scenario is dropped, the rest survive. Failing the whole
+ * list because of a single bad entry would discard everything the user saved,
+ * which is not recoverable; losing one is.
+ */
 export function listSaved(): SavedScenario[] {
-  return read<SavedScenario[]>(SAVED_KEY, []);
+  const raw = read<SavedScenario[]>(SAVED_KEY, []);
+  if (!Array.isArray(raw)) return [];
+  const out: SavedScenario[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const scenario = migrateScenario(entry.scenario);
+    if (scenario) out.push({ ...entry, scenario });
+  }
+  return out;
 }
 
 export function saveScenario(
@@ -66,7 +83,13 @@ export function saveScenario(
 ): SavedScenario[] {
   const all = listSaved();
   // Names are unique (re-saving a name overwrites), so the name is the key.
-  const entry: SavedScenario = { key: name, name, notes: notes || undefined, savedAt, scenario };
+  const entry: SavedScenario = {
+    key: name,
+    name,
+    notes: notes || undefined,
+    savedAt,
+    scenario: stampVersion(scenario),
+  };
   const next = [entry, ...all.filter((s) => s.name !== name)];
   write(SAVED_KEY, next);
   return next;
@@ -79,32 +102,47 @@ export function deleteSaved(key: string): SavedScenario[] {
 }
 
 export function saveLastSession(scenario: Scenario): void {
-  write(LAST_KEY, scenario);
+  write(LAST_KEY, stampVersion(scenario));
 }
 
+/** HYDRATION BOUNDARY 3 of 5 — `runway:last`, a bare scenario. */
 export function loadLastSession(): Scenario | null {
-  return read<Scenario | null>(LAST_KEY, null);
+  return migrateScenario(read<unknown>(LAST_KEY, null));
 }
 
 /** The reference baseline is persisted too, so "Save as baseline" and the blank
  *  "Start fresh" state survive a reload (otherwise the baseline would snap back
  *  to the sample on mount and the session would read as edited again). */
 export function saveLastBaseline(scenario: Scenario): void {
-  write(BASELINE_KEY, scenario);
+  write(BASELINE_KEY, stampVersion(scenario));
 }
 
+/** HYDRATION BOUNDARY 4 of 5 — `runway:baseline`, a bare scenario. */
 export function loadLastBaseline(): Scenario | null {
-  return read<Scenario | null>(BASELINE_KEY, null);
+  return migrateScenario(read<unknown>(BASELINE_KEY, null));
 }
 
 /** Save / read / clear the dated user-saved baseline that backs the Baseline pill
  *  (independent of the working `runway:baseline` Δ anchor). */
 export function setSavedBaseline(scenario: Scenario, savedAt: string, notes?: string): void {
-  write(SAVED_BASELINE_KEY, { scenario, savedAt, notes: notes?.trim() || undefined });
+  write(SAVED_BASELINE_KEY, {
+    scenario: stampVersion(scenario),
+    savedAt,
+    notes: notes?.trim() || undefined,
+  });
 }
 
+/**
+ * HYDRATION BOUNDARY 5 of 5 — `runway:savedBaseline`, a scenario inside a dated
+ * wrapper. Singular, so an unmigratable scenario nulls the whole record and the
+ * Baseline pill simply does not render; `savedAt` and `notes` ride along intact
+ * when it does migrate.
+ */
 export function getSavedBaseline(): SavedBaseline | null {
-  return read<SavedBaseline | null>(SAVED_BASELINE_KEY, null);
+  const raw = read<SavedBaseline | null>(SAVED_BASELINE_KEY, null);
+  if (!raw || typeof raw !== "object") return null;
+  const scenario = migrateScenario(raw.scenario);
+  return scenario ? { ...raw, scenario } : null;
 }
 
 export function clearSavedBaseline(): void {

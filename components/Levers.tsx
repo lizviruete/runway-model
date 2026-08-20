@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { accountDisplayNames } from "@/lib/engine/accountName";
 import { isCreditType } from "@/lib/engine/defaults";
+import { ExpenseList } from "./ExpenseList";
 import type { AssetSaleLever, FlowEvent, Levers as LeversType, Scenario } from "@/lib/engine/types";
 import { formatCurrency, formatMonthYear } from "@/lib/format";
 import { newExpenseId, newIncomeId } from "@/lib/scenario";
@@ -105,42 +106,16 @@ export function Levers({ scenario, onChange, baseline }: LeversProps) {
         </div>
 
         {/* ===== Expenses ===== */}
+        {/* One list, one row component, seeded lines pinned first. The amount
+            input is on every row's face — no modal between a user and the two
+            numbers they touch most. The modal survives for creation only. */}
         <div className="mt-5">
-          <GroupHeader
-            title="Expenses"
-            addLabel="+ Add expense"
-            addTestId="lever-add-expense"
+          <ExpenseList
+            scenario={scenario}
+            onChange={onChange}
             onAdd={() => setModal({ noun: "expense", editing: null })}
+            hintFor={(line) => eventHint(line, baseline?.expenseEvents)}
           />
-        </div>
-
-        <Housing
-          scenario={scenario}
-          onChange={onChange}
-          hint={coreHint(L.housing.monthlyAmount, baseline?.housing.monthlyAmount)}
-        />
-
-        <div className="mt-2">
-          <NumberField
-            label="Target monthly spend (non-housing)"
-            value={L.targetMonthlySpend}
-            onChange={(v) => setLevers({ targetMonthlySpend: v })}
-            hint={coreHint(L.targetMonthlySpend, baseline?.targetMonthlySpend)}
-            testId="lever-target-spend"
-            hintTestId="lever-target-spend-hint"
-          />
-        </div>
-
-        <div className="mt-2 space-y-2">
-          {expenses.map((e) => (
-            <FlowRow
-              key={e.id}
-              event={e}
-              hint={eventHint(e, baseline?.expenseEvents)}
-              onEdit={() => setModal({ noun: "expense", editing: e })}
-              onDelete={() => setLevers({ expenseEvents: expenses.filter((x) => x.id !== e.id) })}
-            />
-          ))}
         </div>
 
         {/* ===== Major asset sale ===== */}
@@ -224,60 +199,6 @@ function FlowRow({
       >
         ✕
       </button>
-    </div>
-  );
-}
-
-function Housing({ scenario, onChange, hint }: Props & { hint?: string }) {
-  const L = scenario.levers;
-  const setLevers = (patch: Partial<LeversType>) => onChange({ ...scenario, levers: { ...L, ...patch } });
-  return (
-    <div className="space-y-2">
-      <NumberField
-        label="Housing / rent (monthly)"
-        value={L.housing.monthlyAmount}
-        onChange={(v) => setLevers({ housing: { ...L.housing, monthlyAmount: v } })}
-        testId="lever-housing"
-        hintTestId="lever-housing-hint"
-        hint={hint}
-      />
-      <label className="flex items-center gap-2 text-xs text-zinc-600">
-        <input
-          type="checkbox"
-          checked={!!L.housing.change}
-          onChange={(e) =>
-            setLevers({
-              housing: {
-                ...L.housing,
-                change: e.target.checked
-                  ? { date: scenario.timeline.start, newAmount: L.housing.monthlyAmount }
-                  : undefined,
-              },
-            })
-          }
-        />
-        Housing cost changes later (e.g. a sublet)
-      </label>
-      {L.housing.change ? (
-        <div className="grid grid-cols-2 gap-2 pl-5">
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-zinc-600">From date</span>
-            <input
-              type="date"
-              value={L.housing.change.date}
-              onChange={(e) =>
-                setLevers({ housing: { ...L.housing, change: { ...L.housing.change!, date: e.target.value } } })
-              }
-              className="w-full rounded-lg border border-zinc-300 px-2 py-1.5 text-sm text-zinc-900 outline-none focus:border-zinc-500"
-            />
-          </label>
-          <NumberField
-            label="New amount"
-            value={L.housing.change.newAmount}
-            onChange={(v) => setLevers({ housing: { ...L.housing, change: { ...L.housing.change!, newAmount: v } } })}
-          />
-        </div>
-      ) : null}
     </div>
   );
 }

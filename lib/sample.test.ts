@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { createSampleScenario, SAMPLE_AS_OF } from "./sample";
+import { findSeeded } from "./engine/expenses";
 import { simulate } from "./engine/simulate";
+import type { Scenario } from "./engine/types";
+
+const seededLine_housing = (s: Scenario) => findSeeded(s.levers, "housing")!;
 
 describe("sample scenario — as-of anchoring", () => {
   it("reproduces the canonical scenario for the default anchor", () => {
@@ -14,7 +18,9 @@ describe("sample scenario — as-of anchoring", () => {
     expect(severance.endDate).toBe("2026-08-31");
     expect(unemployment.startDate).toBe("2026-09-01");
     expect(unemployment.endDate).toBe("2027-02-28");
-    expect(s.levers.housing.change!.date).toBe("2026-09-01");
+    // The sublet is a step change on the seeded housing line (was the bespoke
+    // `levers.housing.change` pair in v1).
+    expect(seededLine_housing(s).stepChange!.date).toBe("2026-09-01");
     const assetSale = s.levers.incomeEvents.find((e) => e.id === "one-asset-sale")!;
     expect(assetSale.kind).toBe("oneoff");
     expect(assetSale.startDate).toBe("2026-08-01");
@@ -32,7 +38,7 @@ describe("sample scenario — as-of anchoring", () => {
     expect(severance.endDate).toBe("2027-04-30"); // ~2 months
     expect(unemployment.startDate).toBe("2027-05-01"); // anchor + 2 months
     expect(unemployment.endDate).toBe("2027-10-31"); // ~6 months
-    expect(s.levers.housing.change!.date).toBe("2027-05-01");
+    expect(seededLine_housing(s).stepChange!.date).toBe("2027-05-01");
     expect(s.levers.incomeEvents.find((e) => e.id === "one-asset-sale")!.startDate).toBe("2027-04-01"); // anchor + 1 month
   });
 

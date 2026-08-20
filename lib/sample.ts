@@ -13,6 +13,8 @@
 
 import { addMonths, daysInMonth, firstOfMonth, parseISO, toISO } from "./engine/dates";
 import { defaultOngoingCost, defaultTaxTreatment } from "./engine/defaults";
+import { seededLine } from "./engine/expenses";
+import { SCENARIO_VERSION } from "./migrate";
 import type { Account, AccountType, Scenario } from "./engine/types";
 
 /** Canonical anchor for deterministic tests + the SSR/first render. */
@@ -56,6 +58,7 @@ export function createSampleScenario(asOf: string = SAMPLE_AS_OF): Scenario {
   return {
     id: "sample",
     name: "Sample User — recent transition",
+    version: SCENARIO_VERSION,
     createdDate: start,
     // 60-month (5-year) horizon from the anchor. The baseline still craters at
     // ~9 months, but the long horizon means single-lever improvements resolve
@@ -76,12 +79,6 @@ export function createSampleScenario(asOf: string = SAMPLE_AS_OF): Scenario {
       account("acc-heloc", "HELOC", "credit_line", 2_000, 7),
     ],
     levers: {
-      housing: {
-        monthlyAmount: 2_800,
-        // Sublet drops housing to $1,400 from the anchor's month 3.
-        change: { date: monthStart(2), newAmount: 1_400 },
-      },
-      targetMonthlySpend: 6_500,
       incomeEvents: [
         {
           // Core always-on lever: $0 because income has paused (a layoff).
@@ -116,7 +113,15 @@ export function createSampleScenario(asOf: string = SAMPLE_AS_OF): Scenario {
           startDate: monthStart(1), // anchor's month 2
         },
       ],
-      expenseEvents: [],
+      // Housing and living spend are the two pinned, seeded expense lines.
+      // The sublet is a step change ON the housing line, not a separate one.
+      expenseEvents: [
+        seededLine("housing", 2_800, start, {
+          // Sublet drops housing to $1,400 from the anchor's month 3.
+          stepChange: { date: monthStart(2), newAmount: 1_400 },
+        }),
+        seededLine("living", 6_500, start),
+      ],
     },
     baselineMonthlySpend: 6_500,
   };
@@ -128,6 +133,7 @@ export function createBlankScenario(asOf: string = SAMPLE_AS_OF): Scenario {
   return {
     id: "blank",
     name: "My scenario",
+    version: SCENARIO_VERSION,
     createdDate: start,
     timeline: { start, end: endOfMonth(addMonths(start, 59)) },
     accounts: [
@@ -135,12 +141,12 @@ export function createBlankScenario(asOf: string = SAMPLE_AS_OF): Scenario {
       account("acc-savings", "Savings", "savings", 0, 2),
     ],
     levers: {
-      housing: { monthlyAmount: 0 },
-      targetMonthlySpend: 0,
       incomeEvents: [
         { id: SALARY_ID, label: "Salary / primary income", kind: "recurring", amount: 0, startDate: start },
       ],
-      expenseEvents: [],
+      // Seeded lines are always present, even at $0 — the expenses section is
+      // never an empty state.
+      expenseEvents: [seededLine("housing", 0, start), seededLine("living", 0, start)],
     },
     baselineMonthlySpend: 0,
   };

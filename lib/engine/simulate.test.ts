@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { simulate } from "./simulate";
 import { defaultOngoingCost, defaultTaxTreatment } from "./defaults";
+import { seededLine } from "./expenses";
+import { SCENARIO_VERSION } from "../migrate";
 import { createSampleScenario } from "../sample";
 import { getPreset } from "../presets";
 import type {
@@ -10,6 +12,7 @@ import type {
   Levers,
   Scenario,
   SimulationResult,
+  StepChange,
 } from "./types";
 
 // ---- builders ---------------------------------------------------------------
@@ -33,22 +36,33 @@ function acct(
 function scn(o: {
   accounts: Account[];
   levers?: Partial<Levers>;
+  /** Seeded living-spend amount (was `levers.targetMonthlySpend` in v1). */
+  spend?: number;
+  /** Seeded housing amount, and an optional step change on that same line. */
+  housing?: number;
+  housingStep?: StepChange;
   start?: string;
   end?: string;
   baselineMonthlySpend?: number;
 }): Scenario {
+  const start = o.start ?? "2026-01-01";
   return {
     id: "test",
     name: "test",
+    version: SCENARIO_VERSION,
     createdDate: "2026-01-01",
-    timeline: { start: o.start ?? "2026-01-01", end: o.end ?? "2026-12-31" },
+    timeline: { start, end: o.end ?? "2026-12-31" },
     accounts: o.accounts,
     levers: {
-      housing: { monthlyAmount: 0 },
-      targetMonthlySpend: 0,
-      incomeEvents: [],
-      expenseEvents: [],
-      ...o.levers,
+      incomeEvents: o.levers?.incomeEvents ?? [],
+      // The two seeded lines are always present, pinned first, exactly as a
+      // migrated or freshly-constructed scenario has them.
+      expenseEvents: [
+        seededLine("housing", o.housing ?? 0, start, o.housingStep ? { stepChange: o.housingStep } : undefined),
+        seededLine("living", o.spend ?? 0, start),
+        ...(o.levers?.expenseEvents ?? []),
+      ],
+      ...(o.levers?.assetSale ? { assetSale: o.levers.assetSale } : {}),
     },
     baselineMonthlySpend: o.baselineMonthlySpend,
   };
@@ -79,11 +93,11 @@ describe("spend lever self-consistency (Chris P0)", () => {
   it("a $X/mo change moves cumulative living outflow by exactly $X/mo", () => {
     const base = scn({
       accounts: [acct({ type: "checking", balance: 1_000_000, priority: 1 })],
-      levers: { targetMonthlySpend: 5_000 },
+      spend: 5_000,
     });
     const bumped = scn({
       accounts: [acct({ type: "checking", balance: 1_000_000, priority: 1 })],
-      levers: { targetMonthlySpend: 5_500 },
+      spend: 5_500,
     });
     const months = simulate(base).months.length;
     expect(months).toBe(12);
@@ -107,7 +121,7 @@ describe("depletion waterfall order (Chris P1)", () => {
           acct({ type: "savings", balance: 2_000, priority: 2, id: "s" }),
           acct({ type: "brokerage", balance: 5_000, priority: 3, id: "b" }),
         ],
-        levers: { targetMonthlySpend: 1_500 },
+        spend: 1_500,
       }),
     );
     const bal = (id: string) =>
@@ -259,16 +273,17 @@ describe("manual draw override", () => {
   });
 });
 
-describe("housing change date", () => {
+describe("housing step change", () => {
   it("applies the new amount from the change month forward", () => {
+    // v1 called this the housing "changes later" pair; it is now the general
+    // step change on the seeded housing line. Same months, same amounts.
     const res = simulate(
       scn({
         start: "2026-01-01",
         end: "2026-06-30",
         accounts: [acct({ type: "checking", balance: 1_000_000, priority: 1 })],
-        levers: {
-          housing: { monthlyAmount: 2_000, change: { date: "2026-04-01", newAmount: 1_000 } },
-        },
+        housing: 2_000,
+        housingStep: { date: "2026-04-01", newAmount: 1_000 },
       }),
     );
     const housingIn = (mk: string) =>
@@ -436,7 +451,7 @@ describe("runway math", () => {
     const res = simulate(
       scn({
         accounts: [acct({ type: "checking", balance: 3_000, priority: 1 })],
-        levers: { targetMonthlySpend: 1_000 },
+        spend: 1_000,
       }),
     );
     // 3,000 / 1,000 = exhausted after 3 months → dry at the start of month 4.
@@ -450,7 +465,7 @@ describe("runway math", () => {
     const res = simulate(
       scn({
         accounts: [acct({ type: "checking", balance: 1_000_000, priority: 1 })],
-        levers: { targetMonthlySpend: 100 },
+        spend: 100,
       }),
     );
     expect(res.runway.survivesHorizon).toBe(true);
@@ -578,7 +593,7 @@ describe("account display names in engine output (V2.1 item 1)", () => {
         acct({ type: "checking", balance: 1_000, priority: 1, id: "op", name: "Everyday" }),
         acct({ type: "pretax", balance: 50_000, priority: 2, id: "blank", name: secondName }),
       ],
-      levers: { targetMonthlySpend: 3_000 },
+      spend: 3_000,
     });
 
   it("labels a blank-named account with its type label everywhere", () => {
@@ -631,7 +646,7 @@ describe("account display names in engine output (V2.1 item 1)", () => {
           acct({ type: "brokerage", balance: 5_000, priority: 2, id: "b1", name: "" }),
           acct({ type: "brokerage", balance: 5_000, priority: 3, id: "b2", name: "" }),
         ],
-        levers: { targetMonthlySpend: 3_000 },
+        spend: 3_000,
       }),
     );
     const nameOf = (id: string) => res.accountTimelines.find((t) => t.accountId === id)!.name;
@@ -650,7 +665,7 @@ describe("account display names in engine output (V2.1 item 1)", () => {
           acct({ type: "savings", balance: 4_000, priority: 2, id: "named", name: "Savings" }),
           acct({ type: "savings", balance: 4_000, priority: 3, id: "blank", name: "" }),
         ],
-        levers: { targetMonthlySpend: 3_000 },
+        spend: 3_000,
       }),
     );
     const legend = res.accountTimelines.map((t) => t.name);
@@ -680,5 +695,172 @@ describe("account display names in engine output (V2.1 item 1)", () => {
     const interest = res.transactions.filter((t) => t.category === "creditInterest");
     expect(interest.length).toBeGreaterThan(0);
     for (const t of interest) expect(t.label).toBe("Interest — Credit line / HELOC");
+  });
+});
+
+// =============================================================================
+
+describe("monthly net cash flow (V2.1 item 2)", () => {
+  it("computes net = in − out in the ENGINE, once per month", () => {
+    // Items 6 and 7 both read this rather than deriving their own, so the chart
+    // tooltip and the ledger NET column cannot disagree.
+    const res = simulate(
+      scn({
+        accounts: [acct({ type: "checking", balance: 100_000, priority: 1 })],
+        housing: 2_000,
+        spend: 3_000,
+        levers: {
+          incomeEvents: [
+            { id: "i", label: "Severance", amount: 4_000, kind: "recurring", startDate: "2026-01-01" },
+          ],
+        },
+      }),
+    );
+    for (const m of res.months) {
+      expect(m.totals.net).toBeCloseTo(m.totals.inflow - m.totals.outflow, 9);
+      expect(m.totals.net).toBeCloseTo(4_000 - 5_000, 9); // a $1,000/mo deficit
+    }
+  });
+
+  it("is positive when income exceeds outflow, and exactly zero when they match", () => {
+    const surplus = simulate(
+      scn({
+        accounts: [acct({ type: "checking", balance: 100_000, priority: 1 })],
+        spend: 1_000,
+        levers: {
+          incomeEvents: [
+            { id: "i", label: "Salary", amount: 3_000, kind: "recurring", startDate: "2026-01-01" },
+          ],
+        },
+      }),
+    );
+    expect(surplus.months[0].totals.net).toBeCloseTo(2_000, 9);
+
+    const flat = simulate(
+      scn({
+        accounts: [acct({ type: "checking", balance: 100_000, priority: 1 })],
+        spend: 3_000,
+        levers: {
+          incomeEvents: [
+            { id: "i", label: "Salary", amount: 3_000, kind: "recurring", startDate: "2026-01-01" },
+          ],
+        },
+      }),
+    );
+    expect(flat.months[0].totals.net).toBe(0);
+  });
+
+  it("counts yield and taxes, and excludes inter-account transfers", () => {
+    // A tap moves money between the user's own accounts — it is not cash flow.
+    const res = simulate(
+      scn({
+        accounts: [
+          acct({ type: "checking", balance: 1_000, priority: 1 }),
+          acct({ type: "hysa", balance: 50_000, priority: 2, id: "h" }),
+        ],
+        spend: 3_000,
+      }),
+    );
+    const m = res.months[2]; // well past the first cascade
+    const yieldIn = m.accounts.reduce((s, a) => s + (a.inflows.interestEarned ?? 0), 0);
+    expect(yieldIn).toBeGreaterThan(0);
+    expect(m.totals.net).toBeCloseTo(yieldIn - 3_000, 6);
+    // …and the taps that funded it are nowhere in the figure.
+    const taps = m.accounts.reduce((s, a) => s + (a.inflows.tapIn ?? 0), 0);
+    expect(taps).toBeGreaterThan(0);
+  });
+});
+
+describe("per-line estimate flag drives ≈ (V2.1 item 2)", () => {
+  const withLines = (lines: Levers["expenseEvents"]) =>
+    simulate(
+      scn({
+        accounts: [acct({ type: "checking", balance: 500_000, priority: 1 })],
+        // Non-zero, so the seeded lines actually post: a $0 line contributes
+        // nothing and therefore carries no estimate flag either.
+        housing: 1_500,
+        spend: 2_000,
+        levers: { expenseEvents: lines },
+      }),
+    ).months[0].accounts[0];
+
+  it("marks living spend estimated by default, and housing not", () => {
+    const m = withLines([]);
+    expect(m.estimated.living).toBe(true);
+    expect(m.estimated.housing).toBe(false); // entered input, not modeled
+  });
+
+  it("leaves a $0 line out entirely — no amount, no flag", () => {
+    const m = simulate(
+      scn({ accounts: [acct({ type: "checking", balance: 500_000, priority: 1 })], spend: 0 }),
+    ).months[0].accounts[0];
+    expect(m.outflows.living).toBeUndefined();
+    expect(m.estimated.living).toBeUndefined();
+  });
+
+  it("marks a USER row as an estimate when its flag is set", () => {
+    // The old category-keyed rule could never do this: "expense" was never ≈.
+    const m = withLines([
+      { id: "e1", label: "Groceries", amount: 800, kind: "recurring", startDate: "2026-01-01", isEstimate: true },
+    ]);
+    expect(m.estimated.expense).toBe(true);
+  });
+
+  it("does NOT mark a seeded line when its flag is turned off", () => {
+    const m = simulate(
+      scn({
+        accounts: [acct({ type: "checking", balance: 500_000, priority: 1 })],
+        spend: 2_000,
+      }),
+    );
+    const on = m.months[0].accounts[0].estimated.living;
+    expect(on).toBe(true);
+
+    const off = simulate({
+      ...scn({ accounts: [acct({ type: "checking", balance: 500_000, priority: 1 })], spend: 2_000 }),
+      levers: {
+        incomeEvents: [],
+        expenseEvents: [{ ...seededLine("living", 2_000, "2026-01-01"), isEstimate: false }],
+      },
+    });
+    expect(off.months[0].accounts[0].estimated.living).toBe(false);
+  });
+
+  it("drops the marker when a category mixes modeled and entered lines", () => {
+    // "≈ Expense" has to mean ALL of it, or it is a lie.
+    const m = withLines([
+      { id: "e1", label: "Groceries", amount: 800, kind: "recurring", startDate: "2026-01-01", isEstimate: true },
+      { id: "e2", label: "Car payment", amount: 400, kind: "recurring", startDate: "2026-01-01" },
+    ]);
+    expect(m.estimated.expense).toBe(false);
+  });
+
+  it("keeps the engine-computed categories estimated by nature", () => {
+    const res = simulate(
+      scn({
+        accounts: [
+          acct({ type: "checking", balance: 1_000, priority: 1 }),
+          acct({ type: "hysa", balance: 50_000, priority: 2, id: "h" }),
+        ],
+        spend: 3_000,
+      }),
+    );
+    const hysa = res.months[1].accounts.find((a) => a.accountId === "h")!;
+    expect(hysa.estimated.interestEarned).toBe(true);
+    // transfers never are
+    expect(hysa.estimated.tapOut).toBe(false);
+  });
+
+  it("puts the same flag on the transactions the Transactions view renders", () => {
+    const res = simulate(
+      scn({
+        accounts: [acct({ type: "checking", balance: 500_000, priority: 1 })],
+        housing: 1_500,
+        spend: 2_000,
+      }),
+    );
+    const first = (cat: string) => res.transactions.find((t) => t.category === cat)!;
+    expect(first("living").isEstimate).toBe(true);
+    expect(first("housing").isEstimate).toBeUndefined(); // entered, not modeled
   });
 });

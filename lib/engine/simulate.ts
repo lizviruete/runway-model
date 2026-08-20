@@ -9,6 +9,7 @@
 
 import { accountDisplayName, accountDisplayNames } from "./accountName";
 import { isCreditType } from "./defaults";
+import { amountForMonth, expenseCategory, seededAmount } from "./expenses";
 import {
   addDays,
   addMonths,
@@ -29,6 +30,7 @@ import type {
   AccountTimeline,
   LedgerAmounts,
   LedgerCategory,
+  LedgerEstimates,
   MonthLedger,
   ProjectionPoint,
   ScheduledTax,
@@ -54,11 +56,26 @@ interface MonthAccumulator {
   opening: number;
   inflows: LedgerAmounts;
   outflows: LedgerAmounts;
+  estimated: LedgerEstimates;
 }
 
 function add(amounts: LedgerAmounts, cat: LedgerCategory, value: number): void {
   if (value === 0) return;
   amounts[cat] = (amounts[cat] ?? 0) + value;
+}
+
+/**
+ * Record whether a contribution to `cat` was a modeled estimate, ANDed across
+ * every contribution in the month. A category stays "≈" only while everything
+ * feeding it is modeled — one entered input in the mix and the marker drops,
+ * because "≈ Expense" has to mean all of it.
+ */
+function markEstimate(
+  flags: LedgerEstimates,
+  cat: LedgerCategory,
+  isEstimate: boolean,
+): void {
+  flags[cat] = (flags[cat] ?? true) && isEstimate;
 }
 
 /** Cash that can still be pulled from an account. */
@@ -119,8 +136,8 @@ export function simulate(scenario: Scenario): SimulationResult {
   );
 
   let cashZeroDate: string | null = null;
-  const baselineMonthlySpend =
-    scenario.baselineMonthlySpend ?? levers.targetMonthlySpend;
+  const livingMonthlySpend = seededAmount(levers, "living");
+  const baselineMonthlySpend = scenario.baselineMonthlySpend ?? livingMonthlySpend;
 
   function tx(
     date: string,
@@ -128,6 +145,7 @@ export function simulate(scenario: Scenario): SimulationResult {
     cat: LedgerCategory,
     amount: number,
     label: string,
+    isEstimate = false,
   ): void {
     transactions.push({
       date,
@@ -137,6 +155,7 @@ export function simulate(scenario: Scenario): SimulationResult {
       category: cat,
       amount,
       label,
+      ...(isEstimate ? { isEstimate: true } : {}),
     });
   }
 
@@ -170,7 +189,7 @@ export function simulate(scenario: Scenario): SimulationResult {
     const acc: Map<string, MonthAccumulator> = new Map(
       states.map((s) => [
         s.account.id,
-        { opening: netLiquid(s), inflows: {}, outflows: {} },
+        { opening: netLiquid(s), inflows: {}, outflows: {}, estimated: {} },
       ]),
     );
     const opening = states.reduce((sum, s) => sum + netLiquid(s), 0);
@@ -187,6 +206,9 @@ export function simulate(scenario: Scenario): SimulationResult {
       operating.balance += amount;
       add(acc.get(s.account.id)!.outflows, "tapOut", amount);
       add(acc.get(operating.account.id)!.inflows, "tapIn", amount);
+      // Transfers move real money between real accounts — never an estimate.
+      markEstimate(acc.get(s.account.id)!.estimated, "tapOut", false);
+      markEstimate(acc.get(operating.account.id)!.estimated, "tapIn", false);
       tx(onDate, s, "tapOut", -amount, label);
       tx(onDate, operating, "tapIn", amount, label);
       if (!s.isCredit) scheduleTax(s, amount, onDate);
@@ -203,7 +225,9 @@ export function simulate(scenario: Scenario): SimulationResult {
       s.balance += interest;
       inflowTotal += interest;
       add(acc.get(s.account.id)!.inflows, "interestEarned", interest);
-      tx(monthStart, s, "interestEarned", interest, "Interest earned");
+      // Computed from a rate — modeled by nature, not an entered figure.
+      markEstimate(acc.get(s.account.id)!.estimated, "interestEarned", true);
+      tx(monthStart, s, "interestEarned", interest, "Interest earned", true);
     }
 
     // ---- 2. credit interest on balances drawn before this month ----------
@@ -240,6 +264,8 @@ export function simulate(scenario: Scenario): SimulationResult {
       inflowTotal += amt;
       operating.balance += amt;
       add(acc.get(operating.account.id)!.inflows, "income", amt);
+      // Income is entered by the user, never modeled.
+      markEstimate(acc.get(operating.account.id)!.estimated, "income", false);
       tx(monthStart, operating, "income", amt, ev.label);
     }
 
@@ -256,6 +282,7 @@ export function simulate(scenario: Scenario): SimulationResult {
         inflowTotal += amt;
         operating.balance += amt;
         add(acc.get(operating.account.id)!.inflows, "income", amt);
+        markEstimate(acc.get(operating.account.id)!.estimated, "income", false);
         tx(monthStart, operating, "income", amt, `${sale.label} income`);
       }
 
@@ -271,6 +298,7 @@ export function simulate(scenario: Scenario): SimulationResult {
         if (tied && tiedPayoff > 0) {
           tied.drawn = 0;
           add(acc.get(tied.account.id)!.inflows, "assetSale", tiedPayoff);
+          markEstimate(acc.get(tied.account.id)!.estimated, "assetSale", false);
           tx(sale.saleDate, tied, "assetSale", tiedPayoff, `${sale.label} — pay off ${nameOf(tied.account)}`);
         }
 
@@ -283,6 +311,7 @@ export function simulate(scenario: Scenario): SimulationResult {
           outflowTotal += -net;
           add(acc.get(operating.account.id)!.outflows, "assetSale", -net);
         }
+        markEstimate(acc.get(operating.account.id)!.estimated, "assetSale", false);
         tx(sale.saleDate, operating, "assetSale", net, `${sale.label} — net proceeds`);
 
         // Capital-gains tax on the realized gain, scheduled per its timing.
@@ -306,26 +335,37 @@ export function simulate(scenario: Scenario): SimulationResult {
 
     // ---- 5. external outflows --------------------------------------------
     const opOut = acc.get(operating.account.id)!.outflows;
+    const opEstimated = acc.get(operating.account.id)!.estimated;
 
-    // 5a. housing
-    const housing = housingForMonth(scenario, monthStart);
-    if (housing > 0) {
-      operating.balance -= housing;
-      outflowTotal += housing;
-      add(opOut, "housing", housing);
-      tx(monthStart, operating, "housing", -housing, "Housing");
+    // 5a. every expense, seeded and user-added alike, in list order.
+    // One loop over one primitive: the seeded housing and living lines are just
+    // the first two entries, distinguished only by the ledger category they post
+    // under. There is no second class of expense in here.
+    for (const line of levers.expenseEvents ?? []) {
+      const amt = amountForMonth(line, monthStart);
+      if (amt <= 0) continue;
+      const category = expenseCategory(line);
+      operating.balance -= amt;
+      outflowTotal += amt;
+      add(opOut, category, amt);
+      // The line itself says whether it is modeled — a user row can be an
+      // estimate, and the seeded living line can have the flag turned off.
+      markEstimate(opEstimated, category, line.isEstimate === true);
+      tx(
+        line.kind === "recurring" ? monthStart : line.startDate,
+        operating,
+        category,
+        -amt,
+        line.label,
+        line.isEstimate === true,
+      );
     }
 
-    // 5b. target monthly living spend
-    const living = levers.targetMonthlySpend;
-    if (living > 0) {
-      operating.balance -= living;
-      outflowTotal += living;
-      add(opOut, "living", living);
-      tx(monthStart, operating, "living", -living, "Living spend");
-    }
-
-    // 5b2. asset carrying cost (e.g. property tax / HOA) — stops at sale
+    // 5b. asset carrying cost (e.g. property tax / HOA) — stops at sale.
+    // Per ruling (p) this now posts AFTER the expense list rather than between
+    // housing and the added expenses. No financial value changes; only the
+    // order of `transactions[]`, and only for a scenario with an asset sale
+    // carrying a monthly cost.
     if (sale?.enabled && sale.associatedMonthlyCostToStop) {
       const beforeSale = compareISO(monthStart, firstOfMonth(sale.saleDate)) < 0;
       if (beforeSale) {
@@ -333,23 +373,9 @@ export function simulate(scenario: Scenario): SimulationResult {
         operating.balance -= cost;
         outflowTotal += cost;
         add(opOut, "assetCarry", cost);
+        markEstimate(opEstimated, "assetCarry", false);
         tx(monthStart, operating, "assetCarry", -cost, `${sale.label} carrying cost`);
       }
-    }
-
-    // 5c. added expenses (recurring or one-off), beyond housing + living
-    for (const ev of levers.expenseEvents ?? []) {
-      let amt = 0;
-      if (ev.kind === "recurring") {
-        if (monthInRange(monthStart, ev.startDate, ev.endDate)) amt = ev.amount;
-      } else if (sameMonth(ev.startDate, monthStart)) {
-        amt = ev.amount;
-      }
-      if (amt <= 0) continue;
-      operating.balance -= amt;
-      outflowTotal += amt;
-      add(opOut, "expense", amt);
-      tx(ev.kind === "recurring" ? monthStart : ev.startDate, operating, "expense", -amt, ev.label);
     }
 
     // 5d. credit interest (accrued in step 2) is paid from operating cash
@@ -357,7 +383,8 @@ export function simulate(scenario: Scenario): SimulationResult {
       operating.balance -= ci.interest;
       outflowTotal += ci.interest;
       add(opOut, "creditInterest", ci.interest);
-      tx(monthStart, operating, "creditInterest", -ci.interest, `Interest — ${ci.name}`);
+      markEstimate(opEstimated, "creditInterest", true); // computed from an APR
+      tx(monthStart, operating, "creditInterest", -ci.interest, `Interest — ${ci.name}`, true);
     }
 
     // 5e. scheduled taxes coming due this month
@@ -368,6 +395,7 @@ export function simulate(scenario: Scenario): SimulationResult {
       operating.balance -= owed;
       outflowTotal += owed;
       add(opOut, "tax", owed);
+      markEstimate(opEstimated, "tax", true); // estimated tax/penalty
       tx(
         st.dueDate,
         operating,
@@ -416,6 +444,7 @@ export function simulate(scenario: Scenario): SimulationResult {
         drawn: s.isCredit ? s.drawn : undefined,
         inflows: a.inflows,
         outflows: a.outflows,
+        estimated: a.estimated,
       };
     });
 
@@ -424,7 +453,15 @@ export function simulate(scenario: Scenario): SimulationResult {
       monthKey: mKey,
       date: monthStart,
       accounts: accountMonths,
-      totals: { opening, inflow: inflowTotal, outflow: outflowTotal, closing },
+      totals: {
+        opening,
+        inflow: inflowTotal,
+        outflow: outflowTotal,
+        // The month's cash flow, computed once here so the chart tooltip and
+        // the ledger's NET column read the same number.
+        net: inflowTotal - outflowTotal,
+        closing,
+      },
     });
     projection.push({
       date: monthStart,
@@ -456,15 +493,7 @@ export function simulate(scenario: Scenario): SimulationResult {
     transactions,
     scheduledTaxes,
     baselineMonthlySpend,
-    targetMonthlySpend: levers.targetMonthlySpend,
+    targetMonthlySpend: livingMonthlySpend,
   };
 }
 
-/** Housing cost active in the month containing `monthStart`. */
-function housingForMonth(scenario: Scenario, monthStart: string): number {
-  const { housing } = scenario.levers;
-  if (housing.change && compareISO(monthStart, firstOfMonth(housing.change.date)) >= 0) {
-    return housing.change.newAmount;
-  }
-  return housing.monthlyAmount;
-}

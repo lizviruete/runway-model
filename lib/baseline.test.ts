@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { hasMeaningfulAmounts } from "./baseline";
+import { setSeededAmount } from "./engine/expenses";
 import { createBlankScenario, createSampleScenario } from "./sample";
 
 describe("hasMeaningfulAmounts", () => {
@@ -12,9 +13,11 @@ describe("hasMeaningfulAmounts", () => {
   });
 
   it("flips true once any single amount is non-zero", () => {
+    // Living spend is a seeded expense line now, so the expense sweep covers it
+    // — `hasMeaningfulAmounts` no longer needs a check of its own for it.
     const s = createBlankScenario();
     expect(hasMeaningfulAmounts(s)).toBe(false);
-    s.levers.targetMonthlySpend = 100;
+    s.levers = setSeededAmount(s.levers, "living", 100);
     expect(hasMeaningfulAmounts(s)).toBe(true);
   });
 

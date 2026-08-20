@@ -3,6 +3,7 @@
 // JSON (not one query param per field). Works in both browser and Node (tests).
 
 import type { Scenario } from "./engine/types";
+import { migrateScenario, stampVersion } from "./migrate";
 
 const PARAM = "s";
 
@@ -23,24 +24,20 @@ function fromBase64Url(param: string): string {
 }
 
 export function encodeScenario(scenario: Scenario): string {
-  return toBase64Url(JSON.stringify(scenario));
+  return toBase64Url(JSON.stringify(stampVersion(scenario)));
 }
 
-/** Parse + lightly validate a scenario; returns null on any malformed input. */
+/**
+ * HYDRATION BOUNDARY 1 of 5 — the `?s=` share link.
+ *
+ * Parse, then migrate. The migration owns all validation now, so a v1 link, a
+ * v2 link and a hand-edited payload are all handled in one place: anything that
+ * cannot be brought to the current shape returns null, and the caller treats
+ * that exactly as it treats an absent param.
+ */
 export function decodeScenario(param: string): Scenario | null {
   try {
-    const obj = JSON.parse(fromBase64Url(param));
-    if (
-      !obj ||
-      typeof obj !== "object" ||
-      !Array.isArray(obj.accounts) ||
-      !obj.levers ||
-      !obj.timeline ||
-      typeof obj.timeline.start !== "string"
-    ) {
-      return null;
-    }
-    return obj as Scenario;
+    return migrateScenario(JSON.parse(fromBase64Url(param)));
   } catch {
     return null;
   }

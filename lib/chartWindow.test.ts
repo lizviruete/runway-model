@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { setSeededAmount } from "./engine/expenses";
 import { simulate } from "./engine/simulate";
 import { createBlankScenario, createSampleScenario } from "./sample";
 import { getPreset } from "./presets";
@@ -34,7 +35,7 @@ describe("visibleMonthCount", () => {
 
   it("stretches the axis when a lever pushes cash-zero later", () => {
     // Halve the living spend → runway extends well past the baseline.
-    const leaner = { ...base, levers: { ...base.levers, targetMonthlySpend: 3_000 } };
+    const leaner = { ...base, levers: setSeededAmount(base.levers, "living", 3_000) };
     const leanRes = simulate(leaner);
     const window = visibleMonthCount(leanRes, baseRes, true);
     expect(window).toBeGreaterThan(12);

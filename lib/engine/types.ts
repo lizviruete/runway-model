@@ -87,17 +87,26 @@ export interface Account {
   userNote?: string;
 }
 
-/** A change to the housing cost from a given date forward (e.g. a sublet). */
-export interface HousingChange {
+/**
+ * A change to a recurring amount from a given date forward (e.g. a sublet
+ * dropping housing, or a raise). Applied from the first of that calendar month.
+ *
+ * Was `HousingChange` in v1, where it existed only on the bespoke housing
+ * lever. It is now general to any expense line — see `FlowEvent.stepChange`.
+ */
+export interface StepChange {
   /** ISO date the new amount takes effect (applied from this calendar month). */
   date: string;
   newAmount: number;
 }
 
-export interface HousingLever {
-  monthlyAmount: number;
-  change?: HousingChange;
-}
+/**
+ * Which pre-seeded expense a line is. Seeded lines are pinned first, cannot be
+ * deleted, and map to their own ledger categories so the audit trail keeps
+ * naming housing and living spend distinctly. It is a POSITION and a category,
+ * not a capability: everything else about a seeded row behaves as a user row.
+ */
+export type SeededExpense = "housing" | "living";
 
 /**
  * A dated cash flow — recurring (monthly between start/end) or one-off (a single
@@ -114,6 +123,19 @@ export interface FlowEvent {
   startDate: string;
   /** ISO date the recurring stream ends, inclusive by month (recurring only). */
   endDate?: string;
+
+  // ---------------------------------------------------------------------------
+  // Expense-only. Optional on the shared type so the Add/Edit modal stays one
+  // component; the UI gates these to the expense context and the engine's income
+  // pass never reads them. Income step-change is a V3 candidate, not enabled here.
+  // ---------------------------------------------------------------------------
+
+  /** A change to `amount` from a date forward. Replaced the housing-only pair. */
+  stepChange?: StepChange;
+  /** Modeled rather than entered — carries the "≈" convention in the ledger. */
+  isEstimate?: boolean;
+  /** Set on the two pre-seeded lines; also picks the ledger category. */
+  seeded?: SeededExpense;
 }
 
 /** Back-compat alias: income streams are the same shape as any flow. */
@@ -142,12 +164,14 @@ export interface AssetSaleLever {
 }
 
 export interface Levers {
-  housing: HousingLever;
-  /** Non-housing target monthly living spend (the V1 "trim", in dollars). */
-  targetMonthlySpend: number;
   /** Income streams (salary + severance, unemployment, one-off inflows…). */
   incomeEvents: FlowEvent[];
-  /** Extra expenses beyond housing + target spend (recurring or one-off). */
+  /**
+   * EVERY expense, as one primitive. The two seeded lines (housing, living
+   * spend) are pinned first and carry `seeded`; everything the user adds
+   * follows. In v1 housing and living spend were bespoke lever fields — see
+   * `lib/migrate.ts`.
+   */
   expenseEvents: FlowEvent[];
   assetSale?: AssetSaleLever;
 }
@@ -161,13 +185,25 @@ export interface ScenarioTimeline {
 export interface Scenario {
   id: string;
   name: string;
+  /**
+   * Schema version of this payload. REQUIRED, deliberately.
+   *
+   * On the wire, absent means v1 — but a scenario only becomes a `Scenario`
+   * after `migrateScenario` has stamped it, so in-memory it is always set. The
+   * field is required so the compiler catches every construction site: a fresh
+   * scenario persisted WITHOUT a version would be read back as v1, fail v1
+   * validation (no `levers.housing`), and be dropped as unmigratable — silently
+   * deleting the user's work. Raw, unstamped payloads are typed `unknown` until
+   * they come out of the migration.
+   */
+  version: number;
   createdDate: string; // ISO
   timeline: ScenarioTimeline;
   accounts: Account[];
   levers: Levers;
   /**
    * Baseline non-housing spend used only to display the "delta vs baseline"
-   * helper for the spend lever. Defaults to the seeded targetMonthlySpend.
+   * helper for the spend lever. Defaults to the seeded living-spend amount.
    */
   baselineMonthlySpend?: number;
 }
@@ -192,6 +228,19 @@ export type LedgerCategory =
 
 export type LedgerAmounts = Partial<Record<LedgerCategory, number>>;
 
+/**
+ * Per category, whether EVERY contribution to it this month was a modeled
+ * estimate rather than an entered input. This is what drives the "≈"
+ * convention: it comes from the expense line's own `isEstimate` flag (plus the
+ * engine-computed categories, which are estimates by nature), NOT from a fixed
+ * list of categories — a user row can be marked an estimate, and the seeded
+ * living-spend line can have the flag turned off.
+ *
+ * A category with mixed contributions resolves to false: "≈ Expense" has to
+ * mean everything behind it is modeled, or it is a lie.
+ */
+export type LedgerEstimates = Partial<Record<LedgerCategory, boolean>>;
+
 /** One account's activity within one month. */
 export interface AccountMonth {
   accountId: string;
@@ -203,6 +252,8 @@ export interface AccountMonth {
   drawn?: number;
   inflows: LedgerAmounts;
   outflows: LedgerAmounts;
+  /** Which of the above are wholly modeled — see `LedgerEstimates`. */
+  estimated: LedgerEstimates;
 }
 
 /** A single dated transaction — the transaction-level ledger detail. */
@@ -215,6 +266,8 @@ export interface Transaction {
   /** Signed: positive = into account / cash in, negative = out. */
   amount: number;
   label: string;
+  /** True when this line is a modeled estimate — drives "≈" per transaction. */
+  isEstimate?: boolean;
 }
 
 export interface MonthLedger {
@@ -225,6 +278,14 @@ export interface MonthLedger {
     opening: number; // total net liquid at month start
     inflow: number; // total external inflows (excludes inter-account taps)
     outflow: number; // total external outflows (excludes inter-account taps)
+    /**
+     * The month's cash flow: `inflow - outflow`. Negative is a deficit.
+     *
+     * Computed HERE, in the engine, deliberately: the chart tooltip (item 6)
+     * and the ledger's NET column (item 7) both read this one value rather than
+     * each deriving it, so they cannot disagree about what a month netted.
+     */
+    net: number;
     closing: number; // total net liquid at month end
   };
 }

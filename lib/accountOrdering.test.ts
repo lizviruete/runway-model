@@ -19,8 +19,10 @@ import { describe, expect, it } from "vitest";
 import { assetTimelines } from "./chart";
 import { accountDisplayNames } from "./engine/accountName";
 import { defaultOngoingCost, defaultTaxTreatment, isCreditType } from "./engine/defaults";
+import { seededLine } from "./engine/expenses";
 import { simulate } from "./engine/simulate";
 import type { Account, AccountType, Scenario } from "./engine/types";
+import { SCENARIO_VERSION } from "./migrate";
 import { moveAccount, newAccount, renumber } from "./scenario";
 
 function acct(id: string, type: AccountType, name: string, priority: number): Account {
@@ -39,16 +41,18 @@ function scenarioOf(accounts: Account[]): Scenario {
   return {
     id: "ordering",
     name: "ordering",
+    version: SCENARIO_VERSION,
     createdDate: "2026-01-01",
     timeline: { start: "2026-01-01", end: "2026-06-30" },
     accounts,
     // A real burn, so the waterfall actually cascades and every account posts
     // ledger activity rather than sitting inert.
     levers: {
-      housing: { monthlyAmount: 1_000 },
-      targetMonthlySpend: 2_000,
       incomeEvents: [],
-      expenseEvents: [],
+      expenseEvents: [
+        seededLine("housing", 1_000, "2026-01-01"),
+        seededLine("living", 2_000, "2026-01-01"),
+      ],
     },
   };
 }
