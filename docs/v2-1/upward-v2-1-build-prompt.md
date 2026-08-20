@@ -255,7 +255,9 @@ From the design package **appendix**, observations 1 and 2. Both surfaces were o
 
 `Amount` is used in **five** places — the OPENING and CLOSING cells, the per-account `open`/`close` figures inside an expanded month, and the Transactions view's amount column. All of them stop colouring by sign.
 
-*Deliberately not changed:* the IN column stays green, and the category pills inside an expanded month keep their green/red treatment. Those encode a **category** (money in, money out), not the sign of a running balance — a distinction the widened rule turns on.
+*Deliberately not changed:* the IN column stays green, and the category pills inside an expanded month keep their green/red treatment. Those encode a **category** (money in, money out), not the sign of a running balance — a distinction the widened rule turns on. **Sign-colouring goes, kind-colouring stays.**
+
+**Judge this one live, not on paper.** With OUT neutral and IN still green, check on the actual page whether the pairing reads as *"good is green, bad is grey"*. The reasoning says it should not — they are categories, not a net pair — but the page is the authority, and this is cheap to look at before it ships.
 
 **b. Soften the cash-zero date.** The CASH-ZERO DATE stat-card figure is the largest red element in the product and, for the primary user, the most anxiety-loaded number on the page. Render the **figure** in near-black (`#111827`), same size and weight.
 

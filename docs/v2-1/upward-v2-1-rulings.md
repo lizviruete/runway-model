@@ -480,6 +480,35 @@ A pointer is defensible because **it names something real**: the levers exist, a
 
 ---
 
+## cc · A fixture must use values the real world actually produces, not tidy ones
+
+**Tidy values sit on boundaries, and a suite built from them tests the boundary rather than the behaviour.**
+
+Both defects found in item 8 share this root:
+
+1. **$8,000 severance against $8,000 of spend** — a coincidence no real scenario produces — netted the opening month *fractionally positive*. Item 7's summary bar takes its regime from the first month, so the demo's headline read **"Adding about $109/mo · turns negative Oct 2026"**: the opposite of the crunch the example exists to show.
+2. **Anchors were all first-of-month**, which the real clock produces on **1 day in 30**. At `2026-08-20` the partial opening month moves the runway by two thirds of a month — drift the old test structurally could not see.
+
+### This is a THIRD way a green suite hides a real defect
+
+Distinct from (m) and (w), and not reachable by either:
+
+| Ruling | What is wrong | What finds it |
+| --- | --- | --- |
+| (m) | The tests do not test the code | Mutation testing |
+| (w) | The code is not reachable | Driving the live app |
+| **(cc)** | **The code is reachable AND correct AND covered — the FIXTURE is unrepresentative** | **Asking whether the inputs are plausible** |
+
+In item 8 the code was reachable, correct, and covered. Eleven mutations were all caught. Neither mutation testing nor live verification finds this class — **only asking whether the inputs are plausible.**
+
+### Scope
+
+**Applies to seed data as much as to test fixtures.** The example scenario is a fixture the user reads, and an implausible one misleads more directly than a test fixture ever can — see [[z]] for what item 8's seed had to change and why.
+
+Round numbers in shipped seed data are a deliberate exception with its own justification (nobody should mistake the demo for a real person's finances), which is exactly why the *relationships between them* need checking against reality even when the values themselves are round: $7,000 of severance against $8,000 of spend is round AND unambiguous, where $8,000 against $8,000 was round and sat on the boundary.
+
+---
+
 ## Also confirmed
 
 - **The build prompt's order wins** over the design package README's BUILD ORDER block, which uses its own numbering. Read the README's order as already-translated.
