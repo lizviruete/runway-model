@@ -4,12 +4,24 @@
   --background: #ffffff;
   --foreground: #171717;
 
-  /* The ten --chart-* palette tokens are NOT declared here.
-     Tailwind v4 strips custom properties that no CSS rule references, and
-     these are only ever read from TypeScript — declared in
-     lib/engine/chartSeries.ts and projected onto the chart root as real
-     custom properties by `chartTokenStyle()`. One source of truth, and one
-     that cannot be silently removed by the CSS pipeline. */
+  /* ===================================================================
+     LOOKING FOR THE CHART PALETTE? It is not in this file.
+
+       →  lib/engine/chartSeries.ts   —  SERIES_HEX, LIABILITY_HEX, NET_HEX
+
+     The ten --chart-series-1…8 / --chart-liability / --chart-net tokens are
+     declared there and projected onto the chart's root element as real CSS
+     custom properties by `chartTokenStyle()`, so `var(--chart-series-N)`
+     still resolves at runtime.
+
+     Why not here: Tailwind v4 strips custom properties that no CSS rule
+     references. Declared in this file and read only from TypeScript, all ten
+     were silently removed from the built stylesheet — which shipped an
+     all-black chart past tsc, eslint, a full green suite and a clean
+     production build. TypeScript has to hold the hex values anyway, because
+     the palette validator reads them; declaring them twice would be two
+     sources that can drift. See ruling (x).
+     =================================================================== */
 }
 
 @theme inline {

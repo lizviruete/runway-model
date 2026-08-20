@@ -331,6 +331,45 @@ Logged for later: if zero deserves distinct copy — "None", or the figure suppr
 
 ---
 
+## w · Mutation testing proves your tests test your code. It does not prove your code is REACHABLE.
+
+The sharpest thing this release has taught.
+
+Item 6's tooltip was **100% covered and 0% visible**. `lib/chartTooltip.ts` had 22 passing tests over a model that **no component imported** — the chart had no hover layer at all. The mutation table was *structurally blind* to it: mutating the model still fails the model's own tests, so every row passed while the feature did not exist on screen.
+
+A mutation table answers "do my tests notice when this code changes". It cannot answer "is this code on the page".
+
+Both of item 6's defects passed **tsc, eslint, 388 green tests, AND a clean production build**:
+
+1. The tooltip, built and tested and never rendered.
+2. Every column rendering **black** — SVG presentation attributes do not parse `var()`, and Tailwind v4 had stripped the ten custom properties from `globals.css` anyway, because no CSS rule referenced them.
+
+That makes **five rendered-layer defects** this release — the type-label lowercase, the untypeable minus, the JSX space, and these two. **These two were the most severe**, and they are the only ones where every automated gate was green.
+
+**Ruling: live verification in Chrome is not a formality and not a nice-to-have. It is the ONLY check that proves reachability.** Standing for every remaining item.
+
+Practically, that means before reporting an item done: open it, drive the thing the item added, and read the actual rendered values — not a screenshot alone, which shows presence but not correctness. Ruling (a) confines testing to the pure layer; this is the compensating control, and it is load-bearing.
+
+---
+
+## x · Sanctioned deviations from §5's geometry
+
+Two, both taken deliberately, both recorded so a later reader does not "restore" them.
+
+### The 2px surface gap between stacked segments
+
+§5 says segments **butt** with no gap, and that light fills carry a 1px stroke of their dark partner. The dataviz method says the opposite on the first point: a 2px surface gap separates touching marks, and *"neighbors one step apart read distinct because of the gap, not a stroke drawn around them."*
+
+**Ruling: take the gap, and keep §5's strokes.** They solve different problems. The gap separates any two touching bands **regardless of hue**, which is what the palette cannot do once exclusion puts non-consecutive series side by side (ruling u). The stroke stops a thin light fill vanishing against white, which the gap does not address. The method's "never a border" rule is written for a border used *instead of* a gap, which is not what §5's strokes are doing.
+
+### The pinned tooltip
+
+§5 specifies a tooltip that follows the cursor at a 12px offset and flips side 260px from the right edge. It is pinned to whichever side is away from the hovered band instead.
+
+**Ruling: keep the pinned tooltip.** §5's actual requirement is *"it never covers the hovered column"*, and pinning satisfies that **more robustly** than offset-plus-flip, which has an edge case at every boundary the flip has to detect. It is also calmer — and calm is the product principle, not a preference.
+
+---
+
 ## Also confirmed
 
 - **The build prompt's order wins** over the design package README's BUILD ORDER block, which uses its own numbering. Read the README's order as already-translated.
