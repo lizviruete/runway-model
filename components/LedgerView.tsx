@@ -120,12 +120,14 @@ export function LedgerView({ result }: { result: SimulationResult }) {
                                   <span className="text-zinc-400">open <Amount value={a.opening} /></span>
                                   {Object.entries(a.inflows).map(([cat, v]) => (
                                     <span key={cat} className="rounded bg-emerald-50 px-1.5 py-0.5 text-emerald-700">
-                                      {catLabel(cat as LedgerCategory)} +{formatCurrency(v ?? 0)}
+                                      {catLabel(cat as LedgerCategory, a.estimated[cat as LedgerCategory])}{" "}
+                                      +{formatCurrency(v ?? 0)}
                                     </span>
                                   ))}
                                   {Object.entries(a.outflows).map(([cat, v]) => (
                                     <span key={cat} className="rounded bg-red-50 px-1.5 py-0.5 text-red-700">
-                                      {catLabel(cat as LedgerCategory)} −{formatCurrency(v ?? 0)}
+                                      {catLabel(cat as LedgerCategory, a.estimated[cat as LedgerCategory])}{" "}
+                                      −{formatCurrency(v ?? 0)}
                                     </span>
                                   ))}
                                   <span className="text-zinc-400">close <Amount value={a.closing} /></span>
@@ -158,7 +160,7 @@ export function LedgerView({ result }: { result: SimulationResult }) {
                   <td className="px-3 py-1.5 text-zinc-500">{formatDate(t.date)}</td>
                   <td className="px-3 py-1.5 text-zinc-700">{t.accountName}</td>
                   <td className="px-3 py-1.5 text-zinc-500">
-                    {catLabel(t.category)}{" "}
+                    {catLabel(t.category, t.isEstimate)}{" "}
                     {t.label && !isRedundantTransactionLabel(t.category, t.label) ? (
                       <span className="text-zinc-400">· {t.label}</span>
                     ) : null}

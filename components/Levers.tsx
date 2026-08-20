@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { accountDisplayNames } from "@/lib/engine/accountName";
 import { isCreditType } from "@/lib/engine/defaults";
-import { findSeeded, patchSeeded, seededAmount, setSeededAmount } from "@/lib/engine/expenses";
+import { ExpenseList } from "./ExpenseList";
 import type { AssetSaleLever, FlowEvent, Levers as LeversType, Scenario } from "@/lib/engine/types";
 import { formatCurrency, formatMonthYear } from "@/lib/format";
 import { newExpenseId, newIncomeId } from "@/lib/scenario";
@@ -106,48 +106,16 @@ export function Levers({ scenario, onChange, baseline }: LeversProps) {
         </div>
 
         {/* ===== Expenses ===== */}
+        {/* One list, one row component, seeded lines pinned first. The amount
+            input is on every row's face — no modal between a user and the two
+            numbers they touch most. The modal survives for creation only. */}
         <div className="mt-5">
-          <GroupHeader
-            title="Expenses"
-            addLabel="+ Add expense"
-            addTestId="lever-add-expense"
+          <ExpenseList
+            scenario={scenario}
+            onChange={onChange}
             onAdd={() => setModal({ noun: "expense", editing: null })}
+            hintFor={(line) => eventHint(line, baseline?.expenseEvents)}
           />
-        </div>
-
-        <Housing
-          scenario={scenario}
-          onChange={onChange}
-          hint={coreHint(
-            seededAmount(L, "housing"),
-            baseline ? seededAmount(baseline, "housing") : undefined,
-          )}
-        />
-
-        <div className="mt-2">
-          <NumberField
-            label="Target monthly spend (non-housing)"
-            value={seededAmount(L, "living")}
-            onChange={(v) => setLevers(setSeededAmount(L, "living", v))}
-            hint={coreHint(
-              seededAmount(L, "living"),
-              baseline ? seededAmount(baseline, "living") : undefined,
-            )}
-            testId="lever-target-spend"
-            hintTestId="lever-target-spend-hint"
-          />
-        </div>
-
-        <div className="mt-2 space-y-2">
-          {expenses.map((e) => (
-            <FlowRow
-              key={e.id}
-              event={e}
-              hint={eventHint(e, baseline?.expenseEvents)}
-              onEdit={() => setModal({ noun: "expense", editing: e })}
-              onDelete={() => setLevers({ expenseEvents: expenses.filter((x) => x.id !== e.id) })}
-            />
-          ))}
         </div>
 
         {/* ===== Major asset sale ===== */}
@@ -231,63 +199,6 @@ function FlowRow({
       >
         ✕
       </button>
-    </div>
-  );
-}
-
-function Housing({ scenario, onChange, hint }: Props & { hint?: string }) {
-  // NOTE: this is the v1 housing UI, mechanically rebased onto the seeded
-  // expense line so the app keeps compiling and behaving exactly as it did.
-  // The inline expense rows, the details drawer and the general step-change
-  // control (design package §1) are the NEXT stage of item 2 — deliberately not
-  // built here, so the migration lands as its own reviewable unit.
-  const L = scenario.levers;
-  const setLevers = (next: LeversType) => onChange({ ...scenario, levers: next });
-  const housing = findSeeded(L, "housing");
-  const step = housing?.stepChange;
-  const patch = (p: Partial<FlowEvent>) => setLevers(patchSeeded(L, "housing", p));
-  return (
-    <div className="space-y-2">
-      <NumberField
-        label="Housing / rent (monthly)"
-        value={housing?.amount ?? 0}
-        onChange={(v) => patch({ amount: v })}
-        testId="lever-housing"
-        hintTestId="lever-housing-hint"
-        hint={hint}
-      />
-      <label className="flex items-center gap-2 text-xs text-zinc-600">
-        <input
-          type="checkbox"
-          checked={!!step}
-          onChange={(e) =>
-            patch({
-              stepChange: e.target.checked
-                ? { date: scenario.timeline.start, newAmount: housing?.amount ?? 0 }
-                : undefined,
-            })
-          }
-        />
-        Housing cost changes later (e.g. a sublet)
-      </label>
-      {step ? (
-        <div className="grid grid-cols-2 gap-2 pl-5">
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-zinc-600">From date</span>
-            <input
-              type="date"
-              value={step.date}
-              onChange={(e) => patch({ stepChange: { ...step, date: e.target.value } })}
-              className="w-full rounded-lg border border-zinc-300 px-2 py-1.5 text-sm text-zinc-900 outline-none focus:border-zinc-500"
-            />
-          </label>
-          <NumberField
-            label="New amount"
-            value={step.newAmount}
-            onChange={(v) => patch({ stepChange: { ...step, newAmount: v } })}
-          />
-        </div>
-      ) : null}
     </div>
   );
 }

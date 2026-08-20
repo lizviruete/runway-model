@@ -228,6 +228,19 @@ export type LedgerCategory =
 
 export type LedgerAmounts = Partial<Record<LedgerCategory, number>>;
 
+/**
+ * Per category, whether EVERY contribution to it this month was a modeled
+ * estimate rather than an entered input. This is what drives the "≈"
+ * convention: it comes from the expense line's own `isEstimate` flag (plus the
+ * engine-computed categories, which are estimates by nature), NOT from a fixed
+ * list of categories — a user row can be marked an estimate, and the seeded
+ * living-spend line can have the flag turned off.
+ *
+ * A category with mixed contributions resolves to false: "≈ Expense" has to
+ * mean everything behind it is modeled, or it is a lie.
+ */
+export type LedgerEstimates = Partial<Record<LedgerCategory, boolean>>;
+
 /** One account's activity within one month. */
 export interface AccountMonth {
   accountId: string;
@@ -239,6 +252,8 @@ export interface AccountMonth {
   drawn?: number;
   inflows: LedgerAmounts;
   outflows: LedgerAmounts;
+  /** Which of the above are wholly modeled — see `LedgerEstimates`. */
+  estimated: LedgerEstimates;
 }
 
 /** A single dated transaction — the transaction-level ledger detail. */
@@ -251,6 +266,8 @@ export interface Transaction {
   /** Signed: positive = into account / cash in, negative = out. */
   amount: number;
   label: string;
+  /** True when this line is a modeled estimate — drives "≈" per transaction. */
+  isEstimate?: boolean;
 }
 
 export interface MonthLedger {
@@ -261,6 +278,14 @@ export interface MonthLedger {
     opening: number; // total net liquid at month start
     inflow: number; // total external inflows (excludes inter-account taps)
     outflow: number; // total external outflows (excludes inter-account taps)
+    /**
+     * The month's cash flow: `inflow - outflow`. Negative is a deficit.
+     *
+     * Computed HERE, in the engine, deliberately: the chart tooltip (item 6)
+     * and the ledger's NET column (item 7) both read this one value rather than
+     * each deriving it, so they cannot disagree about what a month netted.
+     */
+    net: number;
     closing: number; // total net liquid at month end
   };
 }

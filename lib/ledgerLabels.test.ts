@@ -50,23 +50,33 @@ describe("isRedundantTransactionLabel", () => {
   });
 });
 
-describe("catLabel — the MONTHLY view is unaffected by line labels", () => {
-  it("depends on the category alone", () => {
-    // The monthly ledger renders catLabel(category) and never sees a label, so
-    // nothing in item 2's expense-primitive work can change it.
+describe("catLabel — ≈ is driven per line, not per category", () => {
+  it("always renders the category's name", () => {
     for (const cat of Object.keys(CATEGORY_LABELS) as LedgerCategory[]) {
       expect(catLabel(cat)).toContain(CATEGORY_LABELS[cat]);
+      expect(catLabel(cat, true)).toContain(CATEGORY_LABELS[cat]);
     }
   });
 
-  it("keeps the ≈ marker on modeled categories only", () => {
-    expect(catLabel("living")).toBe("≈ Living");
-    expect(catLabel("interestEarned")).toBe("≈ Interest");
-    expect(catLabel("tax")).toBe("≈ Tax/penalty");
-    expect(catLabel("creditInterest")).toBe("≈ Credit interest");
-    // entered inputs carry no marker
-    expect(catLabel("housing")).toBe("Housing");
-    expect(catLabel("expense")).toBe("Expense");
-    expect(catLabel("income")).toBe("Income");
+  it("adds ≈ when and only when the amount is modeled", () => {
+    expect(catLabel("living", true)).toBe("≈ Living");
+    expect(catLabel("living", false)).toBe("Living");
+    expect(catLabel("expense", true)).toBe("≈ Expense");
+    expect(catLabel("expense", false)).toBe("Expense");
+  });
+
+  it("no longer hard-codes which categories are estimates", () => {
+    // The old behaviour was a fixed MODELED set: "living" was ALWAYS ≈ and
+    // "expense" never was. §1 makes it a per-line control, so both directions
+    // have to be reachable.
+    expect(catLabel("living")).toBe("Living"); // living, flag off
+    expect(catLabel("expense", true)).toBe("≈ Expense"); // a user row, flag on
+    expect(catLabel("housing", true)).toBe("≈ Housing"); // housing can be too
+    expect(catLabel("housing")).toBe("Housing"); // …but is not by default
+  });
+
+  it("ignores the label entirely — renaming a line never changes ≈", () => {
+    // catLabel takes no label argument at all; this pins that signature.
+    expect(catLabel.length).toBeLessThanOrEqual(2);
   });
 });

@@ -697,3 +697,170 @@ describe("account display names in engine output (V2.1 item 1)", () => {
     for (const t of interest) expect(t.label).toBe("Interest — Credit line / HELOC");
   });
 });
+
+// =============================================================================
+
+describe("monthly net cash flow (V2.1 item 2)", () => {
+  it("computes net = in − out in the ENGINE, once per month", () => {
+    // Items 6 and 7 both read this rather than deriving their own, so the chart
+    // tooltip and the ledger NET column cannot disagree.
+    const res = simulate(
+      scn({
+        accounts: [acct({ type: "checking", balance: 100_000, priority: 1 })],
+        housing: 2_000,
+        spend: 3_000,
+        levers: {
+          incomeEvents: [
+            { id: "i", label: "Severance", amount: 4_000, kind: "recurring", startDate: "2026-01-01" },
+          ],
+        },
+      }),
+    );
+    for (const m of res.months) {
+      expect(m.totals.net).toBeCloseTo(m.totals.inflow - m.totals.outflow, 9);
+      expect(m.totals.net).toBeCloseTo(4_000 - 5_000, 9); // a $1,000/mo deficit
+    }
+  });
+
+  it("is positive when income exceeds outflow, and exactly zero when they match", () => {
+    const surplus = simulate(
+      scn({
+        accounts: [acct({ type: "checking", balance: 100_000, priority: 1 })],
+        spend: 1_000,
+        levers: {
+          incomeEvents: [
+            { id: "i", label: "Salary", amount: 3_000, kind: "recurring", startDate: "2026-01-01" },
+          ],
+        },
+      }),
+    );
+    expect(surplus.months[0].totals.net).toBeCloseTo(2_000, 9);
+
+    const flat = simulate(
+      scn({
+        accounts: [acct({ type: "checking", balance: 100_000, priority: 1 })],
+        spend: 3_000,
+        levers: {
+          incomeEvents: [
+            { id: "i", label: "Salary", amount: 3_000, kind: "recurring", startDate: "2026-01-01" },
+          ],
+        },
+      }),
+    );
+    expect(flat.months[0].totals.net).toBe(0);
+  });
+
+  it("counts yield and taxes, and excludes inter-account transfers", () => {
+    // A tap moves money between the user's own accounts — it is not cash flow.
+    const res = simulate(
+      scn({
+        accounts: [
+          acct({ type: "checking", balance: 1_000, priority: 1 }),
+          acct({ type: "hysa", balance: 50_000, priority: 2, id: "h" }),
+        ],
+        spend: 3_000,
+      }),
+    );
+    const m = res.months[2]; // well past the first cascade
+    const yieldIn = m.accounts.reduce((s, a) => s + (a.inflows.interestEarned ?? 0), 0);
+    expect(yieldIn).toBeGreaterThan(0);
+    expect(m.totals.net).toBeCloseTo(yieldIn - 3_000, 6);
+    // …and the taps that funded it are nowhere in the figure.
+    const taps = m.accounts.reduce((s, a) => s + (a.inflows.tapIn ?? 0), 0);
+    expect(taps).toBeGreaterThan(0);
+  });
+});
+
+describe("per-line estimate flag drives ≈ (V2.1 item 2)", () => {
+  const withLines = (lines: Levers["expenseEvents"]) =>
+    simulate(
+      scn({
+        accounts: [acct({ type: "checking", balance: 500_000, priority: 1 })],
+        // Non-zero, so the seeded lines actually post: a $0 line contributes
+        // nothing and therefore carries no estimate flag either.
+        housing: 1_500,
+        spend: 2_000,
+        levers: { expenseEvents: lines },
+      }),
+    ).months[0].accounts[0];
+
+  it("marks living spend estimated by default, and housing not", () => {
+    const m = withLines([]);
+    expect(m.estimated.living).toBe(true);
+    expect(m.estimated.housing).toBe(false); // entered input, not modeled
+  });
+
+  it("leaves a $0 line out entirely — no amount, no flag", () => {
+    const m = simulate(
+      scn({ accounts: [acct({ type: "checking", balance: 500_000, priority: 1 })], spend: 0 }),
+    ).months[0].accounts[0];
+    expect(m.outflows.living).toBeUndefined();
+    expect(m.estimated.living).toBeUndefined();
+  });
+
+  it("marks a USER row as an estimate when its flag is set", () => {
+    // The old category-keyed rule could never do this: "expense" was never ≈.
+    const m = withLines([
+      { id: "e1", label: "Groceries", amount: 800, kind: "recurring", startDate: "2026-01-01", isEstimate: true },
+    ]);
+    expect(m.estimated.expense).toBe(true);
+  });
+
+  it("does NOT mark a seeded line when its flag is turned off", () => {
+    const m = simulate(
+      scn({
+        accounts: [acct({ type: "checking", balance: 500_000, priority: 1 })],
+        spend: 2_000,
+      }),
+    );
+    const on = m.months[0].accounts[0].estimated.living;
+    expect(on).toBe(true);
+
+    const off = simulate({
+      ...scn({ accounts: [acct({ type: "checking", balance: 500_000, priority: 1 })], spend: 2_000 }),
+      levers: {
+        incomeEvents: [],
+        expenseEvents: [{ ...seededLine("living", 2_000, "2026-01-01"), isEstimate: false }],
+      },
+    });
+    expect(off.months[0].accounts[0].estimated.living).toBe(false);
+  });
+
+  it("drops the marker when a category mixes modeled and entered lines", () => {
+    // "≈ Expense" has to mean ALL of it, or it is a lie.
+    const m = withLines([
+      { id: "e1", label: "Groceries", amount: 800, kind: "recurring", startDate: "2026-01-01", isEstimate: true },
+      { id: "e2", label: "Car payment", amount: 400, kind: "recurring", startDate: "2026-01-01" },
+    ]);
+    expect(m.estimated.expense).toBe(false);
+  });
+
+  it("keeps the engine-computed categories estimated by nature", () => {
+    const res = simulate(
+      scn({
+        accounts: [
+          acct({ type: "checking", balance: 1_000, priority: 1 }),
+          acct({ type: "hysa", balance: 50_000, priority: 2, id: "h" }),
+        ],
+        spend: 3_000,
+      }),
+    );
+    const hysa = res.months[1].accounts.find((a) => a.accountId === "h")!;
+    expect(hysa.estimated.interestEarned).toBe(true);
+    // transfers never are
+    expect(hysa.estimated.tapOut).toBe(false);
+  });
+
+  it("puts the same flag on the transactions the Transactions view renders", () => {
+    const res = simulate(
+      scn({
+        accounts: [acct({ type: "checking", balance: 500_000, priority: 1 })],
+        housing: 1_500,
+        spend: 2_000,
+      }),
+    );
+    const first = (cat: string) => res.transactions.find((t) => t.category === cat)!;
+    expect(first("living").isEstimate).toBe(true);
+    expect(first("housing").isEstimate).toBeUndefined(); // entered, not modeled
+  });
+});

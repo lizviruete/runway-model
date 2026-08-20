@@ -22,20 +22,21 @@ export const CATEGORY_LABELS: Record<LedgerCategory, string> = {
   tapOut: "Transfer out",
 };
 
-/** Categories that are MODELED estimates (computed from assumptions) rather
- *  than known inputs you entered. Marked with "≈" so the audit trail is honest
- *  about what is projected vs. what is given. */
-const MODELED: ReadonlySet<LedgerCategory> = new Set<LedgerCategory>([
-  "living", // living spend (an assumption, not a recorded transaction)
-  "interestEarned", // yield, computed from a rate
-  "tax", // estimated tax/penalty
-  "creditInterest", // computed from an APR
-]);
-
-/** Category label, prefixed with "≈" when it's a modeled estimate. Depends on
- *  the CATEGORY only — the monthly ledger view is unaffected by line labels. */
-export function catLabel(cat: LedgerCategory): string {
-  return `${MODELED.has(cat) ? "≈ " : ""}${CATEGORY_LABELS[cat]}`;
+/**
+ * Category label, prefixed with "≈" when the amount behind it is modeled.
+ *
+ * `isEstimate` comes from the engine, which derives it PER LINE — an expense
+ * line's own `isEstimate` flag, plus the engine-computed categories (yield,
+ * tax, credit interest) that are modeled by nature. It is deliberately not a
+ * fixed list of categories any more: §1 makes "This is an estimate" a per-line
+ * control, so a user-added row marked as an estimate has to render "≈", and the
+ * seeded housing line must not.
+ *
+ * Depends on the label not at all — renaming a line never changes whether it is
+ * an estimate.
+ */
+export function catLabel(cat: LedgerCategory, isEstimate = false): string {
+  return `${isEstimate ? "≈ " : ""}${CATEGORY_LABELS[cat]}`;
 }
 
 /**
