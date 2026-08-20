@@ -1,8 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { penaltyFaceClause, returnFaceClause } from "@/lib/accountAssumptions";
 import { accountDisplayNames } from "@/lib/engine/accountName";
-import { ACCOUNT_TYPE_META, ACCOUNT_TYPE_ORDER, isCreditType } from "@/lib/engine/defaults";
+import {
+  ACCOUNT_TYPE_META,
+  ACCOUNT_TYPE_ORDER,
+  isCreditType,
+  supportsExpectedReturn,
+} from "@/lib/engine/defaults";
+import { AssumptionsPanel } from "./AssumptionsPanel";
 import type { Account, AccountType, Scenario } from "@/lib/engine/types";
 import { formatCurrency } from "@/lib/format";
 import {
@@ -183,7 +190,7 @@ export function AccountList({ scenario, onChange }: Props) {
               <p className="mt-1 pl-8 text-[11px] text-zinc-400">
                 {credit ? "Available credit · " : ""}
                 {meta.helper}
-                <OngoingCostNote account={account} />
+                <ConsequenceNote account={account} />
               </p>
 
               {isOpen ? <Implications scenario={scenario} account={account} onChange={onChange} /> : null}
@@ -196,19 +203,19 @@ export function AccountList({ scenario, onChange }: Props) {
   );
 }
 
-/** Computed monthly carrying cost / yield, surfaced per account. */
-function OngoingCostNote({ account }: { account: Account }) {
+/**
+ * The consequence line appended to a card's helper text.
+ *
+ * A return on an ASSET and a cost on a LIABILITY never share a treatment: the
+ * return is green and says "earns"/"grows", the HELOC's interest stays warm and
+ * says "interest". That distinction is load-bearing — green vs. orange is never
+ * the only signal, the words differ too.
+ */
+function ConsequenceNote({ account }: { account: Account }) {
   const { kind, annualRate } = account.ongoingCost;
-  if (annualRate <= 0) return null;
-  if (kind === "interest_earned") {
-    const monthly = (account.balance * annualRate) / 12;
-    return (
-      <span className="text-emerald-600">
-        {" "}· earns ≈ {formatCurrency(monthly)}/mo at this balance
-      </span>
-    );
-  }
-  if (kind === "credit_interest") {
+
+  // Liability: unchanged, deliberately.
+  if (kind === "credit_interest" && annualRate > 0) {
     const per10k = (10_000 * annualRate) / 12;
     return (
       <span className="text-amber-600">
@@ -216,7 +223,20 @@ function OngoingCostNote({ account }: { account: Account }) {
       </span>
     );
   }
-  return null;
+
+  if (!supportsExpectedReturn(account.type)) return null;
+
+  const penalty = penaltyFaceClause(account);
+  return (
+    <>
+      {/* "assumes {r}%/yr" at the default, "your rate: {r}%/yr" once changed —
+          a user's own number is never hidden from them. */}
+      <span data-testid="account-return-clause" className="text-emerald-700">
+        {" "}· {returnFaceClause(account)}
+      </span>
+      {penalty ? <span className="text-zinc-500"> · {penalty}</span> : null}
+    </>
+  );
 }
 
 function Pct({
@@ -267,13 +287,21 @@ function Implications({
   const isTaxable = tax.effectiveRate > 0 || tax.taxableFraction > 0 || account.type !== "other";
 
   return (
-    <div className="mt-2 grid grid-cols-2 gap-2 border-t border-zinc-100 pt-2 sm:grid-cols-3">
+    <>
+      {/* Assumptions first — what Upward is assuming about this account, in the
+          panel the word "Assumptions" names. Items 3 and 4 share it. */}
+      <AssumptionsPanel
+        account={account}
+        timeline={scenario.timeline}
+        onPatch={(patch) => onChange(updateAccount(scenario, account.id, patch))}
+      />
+
+      <div className="mt-2 grid grid-cols-2 gap-2 border-t border-zinc-100 pt-2 sm:grid-cols-3">
       {credit ? (
         <Pct label="Interest rate (APR)" value={cost.annualRate} onChange={(v) => patchCost({ annualRate: v })} />
       ) : null}
-      {cost.kind === "interest_earned" ? (
-        <Pct label="Yield (APY)" value={cost.annualRate} onChange={(v) => patchCost({ annualRate: v })} />
-      ) : null}
+      {/* The "Yield (APY)" field is gone: a yield is a RETURN and now lives in
+          the Assumptions panel above. `ongoingCost` is a cost only. */}
       {!credit && isTaxable ? (
         <>
           <Pct label="Effective tax rate" value={tax.effectiveRate} onChange={(v) => patchTax({ effectiveRate: v })} />
@@ -291,6 +319,7 @@ function Implications({
           className="w-full rounded border border-zinc-200 px-1.5 py-1 text-sm text-zinc-900 placeholder:text-zinc-400 outline-none focus:border-zinc-400"
         />
       </label>
-    </div>
+      </div>
+    </>
   );
 }

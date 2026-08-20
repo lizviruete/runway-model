@@ -35,9 +35,13 @@ export function monthlyReturnAt(account: Account): number {
   return (account.balance * account.expectedReturn) / 12;
 }
 
-/** `4.2` for 0.042 — one decimal, matching the field's precision. */
+/** `4.2` for 0.042 — one decimal, matching the field's precision. Uses the
+ *  typographic minus the currency formatter uses, so a negative rate and a
+ *  negative dollar figure do not sit side by side with different glyphs.
+ *  (Display only — the input buffer keeps the ASCII hyphen you can type.) */
 function ratePct(rate: number): string {
-  return String(Math.round(rate * 1000) / 10);
+  const n = Math.round(rate * 1000) / 10;
+  return n < 0 ? `−${Math.abs(n)}` : String(n);
 }
 
 /**
@@ -70,8 +74,15 @@ export function returnFaceClause(account: Account): string {
 /** Panel helper under the rate field. */
 export function returnHelper(account: Account): string {
   return isDefaultRate(account)
-    ? `Upward's default for ${ACCOUNT_TYPE_META[account.type].label.toLowerCase()}. Change it to match your account. Applied monthly, before tax.`
+    ? `Upward's default for ${lowerFirst(ACCOUNT_TYPE_META[account.type].label)}. Change it to match your account. Applied monthly, before tax.`
     : "Your rate. Applied monthly, before tax.";
+}
+
+/** Lowercase the FIRST letter only — mid-sentence type labels read lowercase
+ *  ("…default for high-yield savings"), but a blanket toLowerCase() would
+ *  mangle the acronyms in "Pre-tax retirement (Traditional IRA / 401k)". */
+function lowerFirst(label: string): string {
+  return label.charAt(0).toLowerCase() + label.slice(1);
 }
 
 // -----------------------------------------------------------------------------

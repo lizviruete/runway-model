@@ -53,16 +53,33 @@ describe("return face clause (§2)", () => {
 
   it("does not print 'grows ≈ −$400' for a negative rate", () => {
     const clause = returnFaceClause(acct("brokerage", 80_000, { expectedReturn: -0.06 }));
-    expect(clause).toBe("your rate: -6%/yr · shrinks ≈ $400/mo at this balance");
+    // Typographic minus (U+2212), matching formatCurrency — not an ASCII hyphen.
+    expect(clause).toBe("your rate: −6%/yr · shrinks ≈ $400/mo at this balance");
     expect(clause).not.toContain("grows");
   });
 
+  it("says 'loses' rather than 'shrinks' for a cash savings account", () => {
+    expect(returnFaceClause(acct("hysa", 10_000, { expectedReturn: -0.012 }))).toBe(
+      "your rate: −1.2%/yr · loses ≈ $10/mo at this balance",
+    );
+  });
+
   it("swaps the helper between the default and a user's own rate", () => {
-    expect(returnHelper(acct("brokerage", 1))).toContain("Upward's default for");
-    expect(returnHelper(acct("brokerage", 1))).toContain("Applied monthly, before tax.");
+    expect(returnHelper(acct("brokerage", 1))).toBe(
+      "Upward's default for brokerage / investment. Change it to match your account. Applied monthly, before tax.",
+    );
     expect(returnHelper(acct("brokerage", 1, { expectedReturn: 0.09 }))).toBe(
       "Your rate. Applied monthly, before tax.",
     );
+  });
+
+  it("lowercases only the first letter of the type, preserving acronyms", () => {
+    // A blanket toLowerCase() renders "traditional ira / 401k", which reads as
+    // a typo. Caught in the live render, not by a test — hence this one.
+    expect(returnHelper(acct("pretax", 1))).toBe(
+      "Upward's default for pre-tax retirement (Traditional IRA / 401k). Change it to match your account. Applied monthly, before tax.",
+    );
+    expect(returnHelper(acct("hysa", 1))).toContain("default for high-yield savings.");
   });
 
   it("recognises the default per type", () => {
