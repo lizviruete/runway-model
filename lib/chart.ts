@@ -31,7 +31,7 @@ export function legendTimelines(timelines: AccountTimeline[]): AccountTimeline[]
 }
 
 /** Stack height (sum of asset balances) at month index `i`. */
-export function assetStackTotalAt(assets: AccountTimeline[], i: number): number {
+export function assetStackTotalAt(assets: { balances: number[] }[], i: number): number {
   return assets.reduce((s, t) => s + Math.max(0, t.balances[i] ?? 0), 0);
 }
 
@@ -52,7 +52,9 @@ export function niceMax(v: number): number {
 export function chartMax(
   current: ProjectionPoint[],
   baseline: ProjectionPoint[] | null | undefined,
-  assets: AccountTimeline[],
+  /** Only the series that DRAW — excluded balances are held at full value, so
+   *  leaving them in would scale the axis to money that draws nothing. */
+  assets: { balances: number[] }[],
   showBaseline: boolean,
 ): number {
   const vals: number[] = [1];

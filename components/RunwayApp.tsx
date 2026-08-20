@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { DEFAULT_CHART_MODE, type ChartMode } from "@/lib/chart";
+import { VIEW_LABEL, VIEW_SUBHEAD } from "@/lib/chartTooltip";
+import { seriesIndex } from "@/lib/engine/chartSeries";
+import { tapPositions } from "@/lib/engine/exclusion";
 import { visibleMonthCount } from "@/lib/chartWindow";
 import { simulate } from "@/lib/engine/simulate";
 import type { Scenario } from "@/lib/engine/types";
@@ -259,6 +262,12 @@ export function RunwayApp() {
     ...t,
     balances: t.balances.slice(0, windowMonths),
   }));
+  // Resolved once, from the same modules the card and the ledger read, so the
+  // chip colour, the band colour and the legend number cannot disagree.
+  const slots = useMemo(() => seriesIndex(scenario.accounts), [scenario.accounts]);
+  const taps = useMemo(() => tapPositions(scenario.accounts), [scenario.accounts]);
+  const slotOf = (id: string) => slots.get(id) ?? null;
+  const tapOf = (id: string) => taps.get(id) ?? null;
 
   return (
     <div
@@ -332,11 +341,16 @@ export function RunwayApp() {
                   onClick={() => setMode(m)}
                   className={`px-3 py-1 ${mode === m ? "bg-zinc-900 text-white" : "bg-white text-zinc-600 hover:bg-zinc-50"}`}
                 >
-                  {m === "total" ? "Total" : "By account"}
+                  {VIEW_LABEL[m]}
                 </button>
               ))}
             </div>
           </div>
+          {/* The view subhead is NOT optional (§5): columns invite the flow
+              reading, and naming the quantity is the cost of moving off area. */}
+          <p data-testid="chart-subhead" className="mb-0.5 text-xs text-zinc-500">
+            {VIEW_SUBHEAD[mode]}
+          </p>
           <p className="mb-2 cursor-help text-xs text-zinc-400" title={BASELINE_HELP}>
             {BASELINE_LABEL}
           </p>
@@ -351,6 +365,10 @@ export function RunwayApp() {
               mode={mode}
               baselineLabel={BASELINE_LABEL}
               baselineHelp={BASELINE_HELP}
+              months={result.months.slice(0, windowMonths)}
+              scenario={scenario}
+              slotOf={slotOf}
+              tapOf={tapOf}
             />
           </div>
         </Card>

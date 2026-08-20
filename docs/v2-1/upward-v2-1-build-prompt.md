@@ -173,6 +173,10 @@ Stacked **columns**, one series per account, Net liquid retained as an overlay l
 
 **Palette:** the ten values in §5 (`--chart-series-1…8`, `--chart-liability`, `--chart-net`) are the **only** token additions in this release. Everything else reuses existing values. The alternating dark/light-by-tap-position scheme is deliberate — adjacent bands differ in luminance as well as hue, which is what survives grayscale and dichromatic vision. Light fills carry the 1px stroke of their dark partner; it is load-bearing, not decoration.
 
+> **Where the values live — amended, see ruling (x).** The ten tokens are declared in **`lib/engine/chartSeries.ts`** (`SERIES_HEX`, `LIABILITY_HEX`, `NET_HEX`) and projected onto the chart's root element as real `--chart-*` custom properties by `chartTokenStyle()`. They are **not** declared in `globals.css`: Tailwind v4 strips custom properties no CSS rule references, so a stylesheet declaration read only from TypeScript is silently removed — which shipped an all-black chart past a clean build. TypeScript has to hold the hex values regardless, because the palette validator reads them.
+>
+> "Only the ten `--chart-*` tokens" still holds exactly. Only their home moved.
+
 **Do not add `--chart-income`.** That belongs to §5b, which is out of scope.
 
 **Toggle rename, confirmed:** the existing two views become **"Balances · total"** and **"Balances · by account"**. The current labels distinguish the split but not the quantity, so both read as "the chart" and either can be misread as flow. Do **not** add a third segment.
@@ -274,5 +278,5 @@ From the design package **appendix**, observations 1 and 2. Both surfaces were o
 - Excluding an account and re-including it restores the prior result exactly.
 - The example scenario contains nothing traceable to the author's real financial structure.
 - Every modelled assumption introduced here is visible, labelled as an assumption, and editable.
-- Only the ten `--chart-*` tokens were added. No new spacing, radius, or type values.
+- Only the ten `--chart-*` tokens were added — declared in `lib/engine/chartSeries.ts` and projected onto the chart root, per ruling (x). No new spacing, radius, or type values.
 - Nothing in the interface reads as scolding.
