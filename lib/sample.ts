@@ -109,7 +109,11 @@ export function createSampleScenario(asOf: string = SAMPLE_AS_OF): Scenario {
           id: "inc-severance",
           label: "Severance",
           kind: "recurring",
-          amount: 8_000,
+          // Below the $8,000 of housing + living deliberately. At $8,000 the
+          // first month nets fractionally POSITIVE and the summary bar reads
+          // "Adding about $109/mo · turns negative …" — the example's headline
+          // claiming the opposite of the crunch it exists to show.
+          amount: 7_000,
           startDate: start,
           endDate: endOfMonth(addMonths(start, 1)), // ~2 months out
         },

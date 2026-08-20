@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createBlankScenario, createSampleScenario, SAMPLE_AS_OF } from "./sample";
+import { cashFlowSummary } from "./cashFlowSummary";
 import { findSeeded } from "./engine/expenses";
 import { penaltyWaivedAt } from "./engine/simulate";
 import { simulate } from "./engine/simulate";
@@ -48,13 +49,33 @@ describe("example scenario — as-of anchoring", () => {
     // Item 8 de-personalized the accounts but KEPT the crunch. The tension is
     // what makes the levers worth pulling; a comfortable example demonstrates
     // nothing. This test is the guard on that.
-    const a = simulate(createSampleScenario("2026-07-01")).runway.months;
-    const b = simulate(createSampleScenario("2029-11-01")).runway.months;
-    for (const m of [a, b]) {
+    //
+    // MID-MONTH ANCHORS ARE THE POINT. The app passes the real "today", which
+    // is a first-of-month on 1 day in 30. An earlier version of this test used
+    // only first-of-month anchors and reported a comfortable spread while the
+    // real drift — a partial opening month — went unmeasured.
+    const anchors = ["2026-07-01", "2026-08-20", "2027-02-28", "2029-11-14"];
+    const months = anchors.map((a) => simulate(createSampleScenario(a)).runway.months);
+    for (const m of months) {
       expect(m).toBeGreaterThan(8);
       expect(m).toBeLessThan(10);
     }
-    expect(Math.abs(a - b)).toBeLessThan(0.5); // only day-count drift between anchors
+    // Day-count and partial-opening-month drift only — never a different story.
+    expect(Math.max(...months) - Math.min(...months)).toBeLessThan(1);
+  });
+
+  it("reads as BURNING at every anchor — the headline never contradicts the crunch", () => {
+    // At $8,000 severance against $8,000 of spend the opening month netted
+    // fractionally positive, and the summary bar read "Adding about $109/mo ·
+    // turns negative …" on the example's own landing view. The regime is taken
+    // from the first month, so an example that opens flat can announce the
+    // opposite of what it exists to demonstrate.
+    for (const anchor of ["2026-07-01", "2026-08-20", "2027-02-28", "2029-11-14"]) {
+      const res = simulate(createSampleScenario(anchor));
+      const cf = cashFlowSummary(res.months.slice(0, 24))!;
+      expect(cf.regime, `anchor ${anchor}`).toBe("burning");
+      expect(cf.turnaroundMonth, `anchor ${anchor}`).toBeNull();
+    }
   });
 });
 
@@ -124,12 +145,19 @@ describe("each example account demonstrates one thing", () => {
     // Assert the difference the date makes, not merely that the field is set.
     const a = byId(s, "acc-401k");
     expect(a.penaltyFreeMonth).toBe("2027-03");
+    // Both-sides has to hold at EVERY anchor, not just the canonical one — the
+    // app passes the real "today", and a demonstration that only works on one
+    // day of the year demonstrates nothing on the other 364.
+    for (const anchor of ["2026-07-01", "2026-08-20", "2027-02-28", "2029-11-14"]) {
+      const scn = createSampleScenario(anchor);
+      const free = byId(scn, "acc-401k").penaltyFreeMonth!;
+      const tapped = simulate(scn)
+        .months.filter((m) => m.accounts.find((x) => x.accountId === "acc-401k")!.outflows.tapOut !== 0)
+        .map((m) => m.monthKey);
+      expect(tapped.some((k) => k < free), `anchor ${anchor}: none penalized`).toBe(true);
+      expect(tapped.some((k) => k >= free), `anchor ${anchor}: none waived`).toBe(true);
+    }
     const r = simulate(s);
-    const tapped = r.months
-      .filter((m) => m.accounts.find((x) => x.accountId === "acc-401k")!.outflows.tapOut !== 0)
-      .map((m) => m.monthKey);
-    expect(tapped.some((k) => k < "2027-03")).toBe(true);
-    expect(tapped.some((k) => k >= "2027-03")).toBe(true);
     // …and the engine agrees about which side is which.
     expect(penaltyWaivedAt(a, "2027-02-15")).toBe(false);
     expect(penaltyWaivedAt(a, "2027-03-15")).toBe(true);
