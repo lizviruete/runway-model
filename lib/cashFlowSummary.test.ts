@@ -71,6 +71,31 @@ describe("§6's six copy states, verbatim", () => {
     expect(s.turnaroundChip).toBeNull();
   });
 
+  it("does NOT treat a $0 month as turning positive — flat is not positive", () => {
+    // Found by mutation: `>= 0` instead of `> 0` was unguarded, because no
+    // test had a burning projection that touches exactly zero. A month where
+    // nothing moved is not the month things turned around.
+    const s = cashFlowSummary(series(10, [-7_900, -7_900, 0, -7_900]))!;
+    expect(s.turnaroundMonth).toBeNull();
+    expect(s.text).toBe("Burning about $7,900/mo · no month turns positive in this view");
+  });
+
+  it("names the first genuinely POSITIVE month, skipping a $0 month before it", () => {
+    const s = cashFlowSummary(series(10, [-7_900, 0, 1_200]))!;
+    expect(s.turnaroundMonth).toBe("2026-12"); // not the $0 month in Nov
+    expect(s.turnaroundChip).toBe("TURNS POSITIVE");
+  });
+
+  it("mirrors both rules for a projection that is adding, then flat", () => {
+    // Symmetric: a $0 month is not "turns negative" either.
+    const flat = cashFlowSummary(series(10, [1_200, 1_200, 0, 1_200]))!;
+    expect(flat.turnaroundMonth).toBeNull();
+    expect(flat.text).toBe("Adding about $1,200/mo · positive every month in this view");
+    const turns = cashFlowSummary(series(10, [1_200, 0, -500]))!;
+    expect(turns.turnaroundMonth).toBe("2026-12");
+    expect(turns.turnaroundChip).toBe("TURNS NEGATIVE");
+  });
+
   it("keeps 'about' — a projection rounded in language beats false precision", () => {
     expect(cashFlowSummary(series(10, [-7_912, -7_888]))!.text).toContain("about");
   });
