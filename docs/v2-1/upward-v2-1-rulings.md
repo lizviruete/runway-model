@@ -249,24 +249,30 @@ A useful shape for these tests: assert the exact string, and separately assert `
 
 ---
 
-## t · Test builders spread overrides; they never enumerate fields
+## t · Tests must not depend on POSITION
 
-Three variants of one hazard have now shipped past the compiler in this release. **Opposite mechanisms, identical symptom: a test that silently stops testing what it claims.**
+Array index, column order, field order, spread, or enumeration — **any of these silently rebinds when the shape changes**, and the test keeps passing while asserting something different.
+
+Four instances this release, one hazard:
 
 | Where | Mechanism | What it hid |
 | --- | --- | --- |
 | `applyTypeDefaults` spreading over `Account` | spread kept a field it should have reset | a **stale** field (`expectedReturn` surviving a type change) |
 | `chartWindow` fixture spreading over `Levers` | spread accepted a key the type no longer had | a **removed** field (`targetMonthlySpend`, a silent no-op) |
 | `acct()` builder enumerating `Account` fields | enumeration ignored a key it did not list | a **new** field (`excluded` never reaching the engine) |
+| The CSV invariant indexing **positionally** | `f[f.length - 1]` rebound from `closing` to `net` | a **new column**, swept into the category sum |
 
-TypeScript catches none of them: excess-property checks do not fire through a spread, and `Partial<Account>` accepts a key whether or not the body reads it.
+**The CSV case is the sharpest.** The other three broke or under-tested — a failure you eventually see. That one **continued to pass while quietly asserting a different invariant**: `opening + sum(categories) = closing` became `opening + sum(categories, including closing) = net`, still green, still named the same thing, no longer true of anything.
 
-**Ruling, two parts:**
+TypeScript catches none of them: excess-property checks do not fire through a spread, `Partial<Account>` accepts a key whether or not the body reads it, and an array index is just a number.
+
+**Ruling: look things up by NAME.**
 
 1. **Test builders spread their overrides last** — `const { priority, ...overrides } = o; return { ...defaults, ...overrides }` — so a field added to the type propagates for free.
 2. **Production code that spreads a typed object keeps its type-derived fields in ONE object** (`typeDerived()`), and a test enumerates that object's keys, because the compiler cannot.
+3. **Tabular assertions resolve columns through the header**, never by index or offset — `header.indexOf("closing")`, not `f.length - 1`. The same applies to any ordered output a test slices into: transactions, ledger rows, legend entries, tooltip rows.
 
-Neither is optional going into items 6–10, all of which add fields to types the fixtures spread over.
+None of this is optional going into items 8–10, all of which touch types and outputs the fixtures read.
 
 ---
 
