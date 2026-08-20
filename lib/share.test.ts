@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { decodeScenario, encodeScenario, scenarioFromSearch, shareableUrl } from "./share";
+import { seededAmount, setSeededAmount } from "./engine/expenses";
 import { createSampleScenario } from "./sample";
 import { getPreset } from "./presets";
 
@@ -37,12 +38,12 @@ describe("shareable URL codec", () => {
     const edited = {
       ...createSampleScenario(),
       name: "My situation",
-      levers: { ...createSampleScenario().levers, targetMonthlySpend: 2_500 },
+      levers: setSeededAmount(createSampleScenario().levers, "living", 2_500),
     };
     const url = shareableUrl(edited, "https://upward.lizbuilds.ai/");
     const reopened = scenarioFromSearch(new URL(url).search);
     expect(reopened).toEqual(edited);
-    expect(reopened?.levers.targetMonthlySpend).toBe(2_500);
+    expect(seededAmount(reopened!.levers, "living")).toBe(2_500);
   });
 
   it("returns null for malformed or absent params", () => {

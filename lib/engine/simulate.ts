@@ -9,6 +9,7 @@
 
 import { accountDisplayName, accountDisplayNames } from "./accountName";
 import { isCreditType } from "./defaults";
+import { amountForMonth, expenseCategory, seededAmount } from "./expenses";
 import {
   addDays,
   addMonths,
@@ -119,8 +120,8 @@ export function simulate(scenario: Scenario): SimulationResult {
   );
 
   let cashZeroDate: string | null = null;
-  const baselineMonthlySpend =
-    scenario.baselineMonthlySpend ?? levers.targetMonthlySpend;
+  const livingMonthlySpend = seededAmount(levers, "living");
+  const baselineMonthlySpend = scenario.baselineMonthlySpend ?? livingMonthlySpend;
 
   function tx(
     date: string,
@@ -307,25 +308,31 @@ export function simulate(scenario: Scenario): SimulationResult {
     // ---- 5. external outflows --------------------------------------------
     const opOut = acc.get(operating.account.id)!.outflows;
 
-    // 5a. housing
-    const housing = housingForMonth(scenario, monthStart);
-    if (housing > 0) {
-      operating.balance -= housing;
-      outflowTotal += housing;
-      add(opOut, "housing", housing);
-      tx(monthStart, operating, "housing", -housing, "Housing");
+    // 5a. every expense, seeded and user-added alike, in list order.
+    // One loop over one primitive: the seeded housing and living lines are just
+    // the first two entries, distinguished only by the ledger category they post
+    // under. There is no second class of expense in here.
+    for (const line of levers.expenseEvents ?? []) {
+      const amt = amountForMonth(line, monthStart);
+      if (amt <= 0) continue;
+      const category = expenseCategory(line);
+      operating.balance -= amt;
+      outflowTotal += amt;
+      add(opOut, category, amt);
+      tx(
+        line.kind === "recurring" ? monthStart : line.startDate,
+        operating,
+        category,
+        -amt,
+        line.label,
+      );
     }
 
-    // 5b. target monthly living spend
-    const living = levers.targetMonthlySpend;
-    if (living > 0) {
-      operating.balance -= living;
-      outflowTotal += living;
-      add(opOut, "living", living);
-      tx(monthStart, operating, "living", -living, "Living spend");
-    }
-
-    // 5b2. asset carrying cost (e.g. property tax / HOA) — stops at sale
+    // 5b. asset carrying cost (e.g. property tax / HOA) — stops at sale.
+    // Per ruling (p) this now posts AFTER the expense list rather than between
+    // housing and the added expenses. No financial value changes; only the
+    // order of `transactions[]`, and only for a scenario with an asset sale
+    // carrying a monthly cost.
     if (sale?.enabled && sale.associatedMonthlyCostToStop) {
       const beforeSale = compareISO(monthStart, firstOfMonth(sale.saleDate)) < 0;
       if (beforeSale) {
@@ -335,21 +342,6 @@ export function simulate(scenario: Scenario): SimulationResult {
         add(opOut, "assetCarry", cost);
         tx(monthStart, operating, "assetCarry", -cost, `${sale.label} carrying cost`);
       }
-    }
-
-    // 5c. added expenses (recurring or one-off), beyond housing + living
-    for (const ev of levers.expenseEvents ?? []) {
-      let amt = 0;
-      if (ev.kind === "recurring") {
-        if (monthInRange(monthStart, ev.startDate, ev.endDate)) amt = ev.amount;
-      } else if (sameMonth(ev.startDate, monthStart)) {
-        amt = ev.amount;
-      }
-      if (amt <= 0) continue;
-      operating.balance -= amt;
-      outflowTotal += amt;
-      add(opOut, "expense", amt);
-      tx(ev.kind === "recurring" ? monthStart : ev.startDate, operating, "expense", -amt, ev.label);
     }
 
     // 5d. credit interest (accrued in step 2) is paid from operating cash
@@ -456,15 +448,7 @@ export function simulate(scenario: Scenario): SimulationResult {
     transactions,
     scheduledTaxes,
     baselineMonthlySpend,
-    targetMonthlySpend: levers.targetMonthlySpend,
+    targetMonthlySpend: livingMonthlySpend,
   };
 }
 
-/** Housing cost active in the month containing `monthStart`. */
-function housingForMonth(scenario: Scenario, monthStart: string): number {
-  const { housing } = scenario.levers;
-  if (housing.change && compareISO(monthStart, firstOfMonth(housing.change.date)) >= 0) {
-    return housing.change.newAmount;
-  }
-  return housing.monthlyAmount;
-}

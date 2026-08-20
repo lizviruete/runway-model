@@ -7,6 +7,7 @@
 // =============================================================================
 
 import { addMonths, compareISO, parseISO } from "./engine/dates";
+import { seededAmount, setSeededAmount } from "./engine/expenses";
 import { simulate } from "./engine/simulate";
 import type { IncomeEvent, Scenario } from "./engine/types";
 
@@ -20,12 +21,15 @@ export interface Preset {
 // --- individual transforms ---------------------------------------------------
 
 function zeroHousing(base: Scenario): Scenario {
-  return { ...base, levers: { ...base.levers, housing: { monthlyAmount: 0 } } };
+  // Zeroes the seeded housing line's amount. Any step change on it stays put:
+  // a sublet dropping $0 to $1,400 is still what the user modelled, and
+  // silently discarding it would change more than the preset advertises.
+  return { ...base, levers: setSeededAmount(base.levers, "housing", 0) };
 }
 
 function dramaticReduction(base: Scenario): Scenario {
-  const cut = Math.round((base.levers.targetMonthlySpend * 0.5) / 50) * 50;
-  return { ...base, levers: { ...base.levers, targetMonthlySpend: cut } };
+  const cut = Math.round((seededAmount(base.levers, "living") * 0.5) / 50) * 50;
+  return { ...base, levers: setSeededAmount(base.levers, "living", cut) };
 }
 
 const NEW_ROLE_INCOME_ID = "inc-new-role";
@@ -56,21 +60,21 @@ function surviveToYearEnd(base: Scenario): Scenario {
   const target = `${targetYear}-12-31`;
 
   const reaches = (spend: number) => {
-    const r = simulate({ ...base, levers: { ...base.levers, targetMonthlySpend: spend } }).runway;
+    const r = simulate({ ...base, levers: setSeededAmount(base.levers, "living", spend) }).runway;
     return r.survivesHorizon || (!!r.cashZeroDate && compareISO(r.cashZeroDate, target) >= 0);
   };
 
   // Binary-search the max spend that still reaches the target.
   let lo = 0;
-  let hi = base.levers.targetMonthlySpend;
-  if (!reaches(lo)) return { ...base, levers: { ...base.levers, targetMonthlySpend: 0 } };
+  let hi = seededAmount(base.levers, "living");
+  if (!reaches(lo)) return { ...base, levers: setSeededAmount(base.levers, "living", 0) };
   for (let i = 0; i < 24; i++) {
     const mid = (lo + hi) / 2;
     if (reaches(mid)) lo = mid;
     else hi = mid;
   }
   const spend = Math.floor(lo / 50) * 50;
-  return { ...base, levers: { ...base.levers, targetMonthlySpend: spend } };
+  return { ...base, levers: setSeededAmount(base.levers, "living", spend) };
 }
 
 // --- registry ----------------------------------------------------------------

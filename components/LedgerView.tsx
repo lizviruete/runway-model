@@ -4,6 +4,7 @@ import { Fragment, useState } from "react";
 import type { LedgerCategory, SimulationResult } from "@/lib/engine/types";
 import { monthlyRowsCSV, transactionsCSV } from "@/lib/exporters";
 import { formatCurrency, formatDate, formatMonthYear } from "@/lib/format";
+import { catLabel, isRedundantTransactionLabel } from "@/lib/ledgerLabels";
 import { SectionTitle } from "./ui";
 
 /** Trigger a client-side file download of `text`. */
@@ -15,35 +16,6 @@ function download(filename: string, mime: string, text: string): void {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
-}
-
-const CATEGORY_LABELS: Record<LedgerCategory, string> = {
-  income: "Income",
-  housing: "Housing",
-  living: "Living",
-  expense: "Expense",
-  assetSale: "Asset sale",
-  assetCarry: "Carrying cost",
-  tax: "Tax/penalty",
-  creditInterest: "Credit interest",
-  interestEarned: "Interest",
-  tapIn: "Transfer in",
-  tapOut: "Transfer out",
-};
-
-/** Categories that are MODELED estimates (computed from assumptions) rather
- *  than known inputs you entered. Marked with "≈" so the audit trail is honest
- *  about what is projected vs. what is given. */
-const MODELED: ReadonlySet<LedgerCategory> = new Set<LedgerCategory>([
-  "living", // target spend (an assumption, not a recorded transaction)
-  "interestEarned", // yield, computed from a rate
-  "tax", // estimated tax/penalty
-  "creditInterest", // computed from an APR
-]);
-
-/** Category label, prefixed with "≈" when it's a modeled estimate. */
-function catLabel(cat: LedgerCategory): string {
-  return `${MODELED.has(cat) ? "≈ " : ""}${CATEGORY_LABELS[cat]}`;
 }
 
 function Amount({ value }: { value: number }) {
@@ -186,7 +158,10 @@ export function LedgerView({ result }: { result: SimulationResult }) {
                   <td className="px-3 py-1.5 text-zinc-500">{formatDate(t.date)}</td>
                   <td className="px-3 py-1.5 text-zinc-700">{t.accountName}</td>
                   <td className="px-3 py-1.5 text-zinc-500">
-                    {catLabel(t.category)} {t.label && t.label !== CATEGORY_LABELS[t.category] ? <span className="text-zinc-400">· {t.label}</span> : null}
+                    {catLabel(t.category)}{" "}
+                    {t.label && !isRedundantTransactionLabel(t.category, t.label) ? (
+                      <span className="text-zinc-400">· {t.label}</span>
+                    ) : null}
                   </td>
                   <td className="px-3 py-1.5 text-right"><Amount value={t.amount} /></td>
                 </tr>

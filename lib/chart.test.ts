@@ -7,7 +7,9 @@ import {
   niceMax,
 } from "./chart";
 import { defaultOngoingCost, defaultTaxTreatment } from "./engine/defaults";
+import { seededLine } from "./engine/expenses";
 import { simulate } from "./engine/simulate";
+import { SCENARIO_VERSION } from "./migrate";
 import { createSampleScenario } from "./sample";
 import type { Account, AccountType, Scenario } from "./engine/types";
 
@@ -28,10 +30,14 @@ function scenario(accounts: Account[], start: string, end: string): Scenario {
   return {
     id: "t",
     name: "t",
+    version: SCENARIO_VERSION,
     createdDate: start,
     timeline: { start, end },
     accounts,
-    levers: { housing: { monthlyAmount: 0 }, targetMonthlySpend: 0, incomeEvents: [], expenseEvents: [] },
+    levers: {
+      incomeEvents: [],
+      expenseEvents: [seededLine("housing", 0, start), seededLine("living", 0, start)],
+    },
   };
 }
 

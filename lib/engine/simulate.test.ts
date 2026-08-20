@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { simulate } from "./simulate";
 import { defaultOngoingCost, defaultTaxTreatment } from "./defaults";
+import { seededLine } from "./expenses";
+import { SCENARIO_VERSION } from "../migrate";
 import { createSampleScenario } from "../sample";
 import { getPreset } from "../presets";
 import type {
@@ -10,6 +12,7 @@ import type {
   Levers,
   Scenario,
   SimulationResult,
+  StepChange,
 } from "./types";
 
 // ---- builders ---------------------------------------------------------------
@@ -33,22 +36,33 @@ function acct(
 function scn(o: {
   accounts: Account[];
   levers?: Partial<Levers>;
+  /** Seeded living-spend amount (was `levers.targetMonthlySpend` in v1). */
+  spend?: number;
+  /** Seeded housing amount, and an optional step change on that same line. */
+  housing?: number;
+  housingStep?: StepChange;
   start?: string;
   end?: string;
   baselineMonthlySpend?: number;
 }): Scenario {
+  const start = o.start ?? "2026-01-01";
   return {
     id: "test",
     name: "test",
+    version: SCENARIO_VERSION,
     createdDate: "2026-01-01",
-    timeline: { start: o.start ?? "2026-01-01", end: o.end ?? "2026-12-31" },
+    timeline: { start, end: o.end ?? "2026-12-31" },
     accounts: o.accounts,
     levers: {
-      housing: { monthlyAmount: 0 },
-      targetMonthlySpend: 0,
-      incomeEvents: [],
-      expenseEvents: [],
-      ...o.levers,
+      incomeEvents: o.levers?.incomeEvents ?? [],
+      // The two seeded lines are always present, pinned first, exactly as a
+      // migrated or freshly-constructed scenario has them.
+      expenseEvents: [
+        seededLine("housing", o.housing ?? 0, start, o.housingStep ? { stepChange: o.housingStep } : undefined),
+        seededLine("living", o.spend ?? 0, start),
+        ...(o.levers?.expenseEvents ?? []),
+      ],
+      ...(o.levers?.assetSale ? { assetSale: o.levers.assetSale } : {}),
     },
     baselineMonthlySpend: o.baselineMonthlySpend,
   };
@@ -79,11 +93,11 @@ describe("spend lever self-consistency (Chris P0)", () => {
   it("a $X/mo change moves cumulative living outflow by exactly $X/mo", () => {
     const base = scn({
       accounts: [acct({ type: "checking", balance: 1_000_000, priority: 1 })],
-      levers: { targetMonthlySpend: 5_000 },
+      spend: 5_000,
     });
     const bumped = scn({
       accounts: [acct({ type: "checking", balance: 1_000_000, priority: 1 })],
-      levers: { targetMonthlySpend: 5_500 },
+      spend: 5_500,
     });
     const months = simulate(base).months.length;
     expect(months).toBe(12);
@@ -107,7 +121,7 @@ describe("depletion waterfall order (Chris P1)", () => {
           acct({ type: "savings", balance: 2_000, priority: 2, id: "s" }),
           acct({ type: "brokerage", balance: 5_000, priority: 3, id: "b" }),
         ],
-        levers: { targetMonthlySpend: 1_500 },
+        spend: 1_500,
       }),
     );
     const bal = (id: string) =>
@@ -259,16 +273,17 @@ describe("manual draw override", () => {
   });
 });
 
-describe("housing change date", () => {
+describe("housing step change", () => {
   it("applies the new amount from the change month forward", () => {
+    // v1 called this the housing "changes later" pair; it is now the general
+    // step change on the seeded housing line. Same months, same amounts.
     const res = simulate(
       scn({
         start: "2026-01-01",
         end: "2026-06-30",
         accounts: [acct({ type: "checking", balance: 1_000_000, priority: 1 })],
-        levers: {
-          housing: { monthlyAmount: 2_000, change: { date: "2026-04-01", newAmount: 1_000 } },
-        },
+        housing: 2_000,
+        housingStep: { date: "2026-04-01", newAmount: 1_000 },
       }),
     );
     const housingIn = (mk: string) =>
@@ -436,7 +451,7 @@ describe("runway math", () => {
     const res = simulate(
       scn({
         accounts: [acct({ type: "checking", balance: 3_000, priority: 1 })],
-        levers: { targetMonthlySpend: 1_000 },
+        spend: 1_000,
       }),
     );
     // 3,000 / 1,000 = exhausted after 3 months → dry at the start of month 4.
@@ -450,7 +465,7 @@ describe("runway math", () => {
     const res = simulate(
       scn({
         accounts: [acct({ type: "checking", balance: 1_000_000, priority: 1 })],
-        levers: { targetMonthlySpend: 100 },
+        spend: 100,
       }),
     );
     expect(res.runway.survivesHorizon).toBe(true);
@@ -578,7 +593,7 @@ describe("account display names in engine output (V2.1 item 1)", () => {
         acct({ type: "checking", balance: 1_000, priority: 1, id: "op", name: "Everyday" }),
         acct({ type: "pretax", balance: 50_000, priority: 2, id: "blank", name: secondName }),
       ],
-      levers: { targetMonthlySpend: 3_000 },
+      spend: 3_000,
     });
 
   it("labels a blank-named account with its type label everywhere", () => {
@@ -631,7 +646,7 @@ describe("account display names in engine output (V2.1 item 1)", () => {
           acct({ type: "brokerage", balance: 5_000, priority: 2, id: "b1", name: "" }),
           acct({ type: "brokerage", balance: 5_000, priority: 3, id: "b2", name: "" }),
         ],
-        levers: { targetMonthlySpend: 3_000 },
+        spend: 3_000,
       }),
     );
     const nameOf = (id: string) => res.accountTimelines.find((t) => t.accountId === id)!.name;
@@ -650,7 +665,7 @@ describe("account display names in engine output (V2.1 item 1)", () => {
           acct({ type: "savings", balance: 4_000, priority: 2, id: "named", name: "Savings" }),
           acct({ type: "savings", balance: 4_000, priority: 3, id: "blank", name: "" }),
         ],
-        levers: { targetMonthlySpend: 3_000 },
+        spend: 3_000,
       }),
     );
     const legend = res.accountTimelines.map((t) => t.name);

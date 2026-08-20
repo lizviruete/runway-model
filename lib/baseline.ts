@@ -5,13 +5,12 @@
 
 import type { Scenario } from "./engine/types";
 
-/** True if any account balance, housing, target spend, or income/expense event
- *  amount is non-zero. */
+/** True if any account balance, or any income/expense amount, is non-zero.
+ *  Housing and living spend are expense lines now, so the expense sweep below
+ *  covers them — they no longer need checks of their own. */
 export function hasMeaningfulAmounts(scenario: Scenario): boolean {
   const { accounts, levers } = scenario;
   if (accounts.some((a) => a.balance !== 0)) return true;
-  if (levers.housing.monthlyAmount !== 0) return true;
-  if (levers.targetMonthlySpend !== 0) return true;
   if ((levers.incomeEvents ?? []).some((e) => e.amount !== 0)) return true;
   if ((levers.expenseEvents ?? []).some((e) => e.amount !== 0)) return true;
   return false;

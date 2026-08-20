@@ -87,17 +87,26 @@ export interface Account {
   userNote?: string;
 }
 
-/** A change to the housing cost from a given date forward (e.g. a sublet). */
-export interface HousingChange {
+/**
+ * A change to a recurring amount from a given date forward (e.g. a sublet
+ * dropping housing, or a raise). Applied from the first of that calendar month.
+ *
+ * Was `HousingChange` in v1, where it existed only on the bespoke housing
+ * lever. It is now general to any expense line — see `FlowEvent.stepChange`.
+ */
+export interface StepChange {
   /** ISO date the new amount takes effect (applied from this calendar month). */
   date: string;
   newAmount: number;
 }
 
-export interface HousingLever {
-  monthlyAmount: number;
-  change?: HousingChange;
-}
+/**
+ * Which pre-seeded expense a line is. Seeded lines are pinned first, cannot be
+ * deleted, and map to their own ledger categories so the audit trail keeps
+ * naming housing and living spend distinctly. It is a POSITION and a category,
+ * not a capability: everything else about a seeded row behaves as a user row.
+ */
+export type SeededExpense = "housing" | "living";
 
 /**
  * A dated cash flow — recurring (monthly between start/end) or one-off (a single
@@ -114,6 +123,19 @@ export interface FlowEvent {
   startDate: string;
   /** ISO date the recurring stream ends, inclusive by month (recurring only). */
   endDate?: string;
+
+  // ---------------------------------------------------------------------------
+  // Expense-only. Optional on the shared type so the Add/Edit modal stays one
+  // component; the UI gates these to the expense context and the engine's income
+  // pass never reads them. Income step-change is a V3 candidate, not enabled here.
+  // ---------------------------------------------------------------------------
+
+  /** A change to `amount` from a date forward. Replaced the housing-only pair. */
+  stepChange?: StepChange;
+  /** Modeled rather than entered — carries the "≈" convention in the ledger. */
+  isEstimate?: boolean;
+  /** Set on the two pre-seeded lines; also picks the ledger category. */
+  seeded?: SeededExpense;
 }
 
 /** Back-compat alias: income streams are the same shape as any flow. */
@@ -142,12 +164,14 @@ export interface AssetSaleLever {
 }
 
 export interface Levers {
-  housing: HousingLever;
-  /** Non-housing target monthly living spend (the V1 "trim", in dollars). */
-  targetMonthlySpend: number;
   /** Income streams (salary + severance, unemployment, one-off inflows…). */
   incomeEvents: FlowEvent[];
-  /** Extra expenses beyond housing + target spend (recurring or one-off). */
+  /**
+   * EVERY expense, as one primitive. The two seeded lines (housing, living
+   * spend) are pinned first and carry `seeded`; everything the user adds
+   * follows. In v1 housing and living spend were bespoke lever fields — see
+   * `lib/migrate.ts`.
+   */
   expenseEvents: FlowEvent[];
   assetSale?: AssetSaleLever;
 }
@@ -161,13 +185,25 @@ export interface ScenarioTimeline {
 export interface Scenario {
   id: string;
   name: string;
+  /**
+   * Schema version of this payload. REQUIRED, deliberately.
+   *
+   * On the wire, absent means v1 — but a scenario only becomes a `Scenario`
+   * after `migrateScenario` has stamped it, so in-memory it is always set. The
+   * field is required so the compiler catches every construction site: a fresh
+   * scenario persisted WITHOUT a version would be read back as v1, fail v1
+   * validation (no `levers.housing`), and be dropped as unmigratable — silently
+   * deleting the user's work. Raw, unstamped payloads are typed `unknown` until
+   * they come out of the migration.
+   */
+  version: number;
   createdDate: string; // ISO
   timeline: ScenarioTimeline;
   accounts: Account[];
   levers: Levers;
   /**
    * Baseline non-housing spend used only to display the "delta vs baseline"
-   * helper for the spend lever. Defaults to the seeded targetMonthlySpend.
+   * helper for the spend lever. Defaults to the seeded living-spend amount.
    */
   baselineMonthlySpend?: number;
 }
