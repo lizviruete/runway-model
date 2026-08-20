@@ -28,9 +28,29 @@ function download(filename: string, mime: string, text: string): void {
   URL.revokeObjectURL(url);
 }
 
+/**
+ * A ledger figure. NO SIGN COLOURING — ruling (z).
+ *
+ * `formatCurrency` renders a negative as "−$1,234", so the sign is already in
+ * the number, and the direction is already in the column header. Colour on top
+ * of that adds only alarm: it was turning OPENING and CLOSING red on every row
+ * of any depleted scenario, which is the wall of red item 7 was written to
+ * avoid — with item 7's one calm NET column sitting in the middle of it.
+ *
+ * This is the same argument that made NET neutral, applied consistently rather
+ * than to one column. Five call sites share it: OPENING, CLOSING, the
+ * per-account open/close inside an expanded month, and the Transactions amount.
+ *
+ * The zero case stays dimmed. Per ruling (dd) that is a SCANNING decision, not
+ * an accessibility one — the "$0" already says zero, so raising it is permitted
+ * and simply not wanted. Item 11 must not "fix" it.
+ */
 function Amount({ value }: { value: number }) {
-  const color = value < 0 ? "text-red-600" : value > 0 ? "text-zinc-700" : "text-zinc-400";
-  return <span className={`tabular-nums ${color}`}>{formatCurrency(value)}</span>;
+  return (
+    <span className={`tabular-nums ${value === 0 ? "text-zinc-400" : "text-zinc-700"}`}>
+      {formatCurrency(value)}
+    </span>
+  );
 }
 
 export function LedgerView({
@@ -154,7 +174,14 @@ export function LedgerView({
                       <td className="px-3 py-2 text-right text-emerald-600 tabular-nums">
                         {m.totals.inflow ? formatCurrency(m.totals.inflow) : "—"}
                       </td>
-                      <td className="px-3 py-2 text-right text-red-600 tabular-nums">
+                      {/* OUT is demoted to slate-700 (#334155) — appendix
+                          observation 1. Its red was constant on every row of a
+                          projection where outflow is the expected state, so it
+                          carried no information while carrying alarm. IN keeps
+                          its green; see the note on `Amount` above for why that
+                          asymmetry is a calm-principle call rather than an
+                          information one. */}
+                      <td className="px-3 py-2 text-right text-slate-700 tabular-nums">
                         {m.totals.outflow ? `−${formatCurrency(m.totals.outflow)}` : "—"}
                       </td>
                       {/* NET — sign, caret, magnitude, tabular. NO COLOUR
