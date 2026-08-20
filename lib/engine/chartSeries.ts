@@ -27,7 +27,41 @@ import type { Account, AccountType } from "./types";
 /** How many distinct asset slots the palette defines before it repeats. */
 export const SERIES_SLOTS = 8;
 
-/** CSS custom properties, in slot order. The values live in globals.css. */
+/**
+ * THE PALETTE — the single source of truth, in slot order.
+ *
+ * Defined here rather than in globals.css because Tailwind v4 strips custom
+ * properties that no CSS rule references, and these are only ever read from
+ * TypeScript. The chart root projects them back into real `--chart-*` custom
+ * properties (see `chartTokenStyle`), so the ten tokens exist at runtime and
+ * anything downstream can still use `var(--chart-series-N)` — but they are
+ * declared once, here.
+ *
+ * Alternating dark/light by tap position: adjacent bands differ in luminance
+ * as well as hue. Per ruling (u) eight series cannot pairwise separate, so
+ * colour is the SECONDARY channel — the legend's tap number, the 2px surface
+ * gap and the named legend/tooltip rows carry identity.
+ */
+export const SERIES_HEX = [
+  "#0f766e", // tap 1 · dark  · teal
+  "#7dd3fc", // tap 2 · light · sky
+  "#4338ca", // tap 3 · dark  · indigo
+  "#f0abfc", // tap 4 · light · fuchsia
+  "#be123c", // tap 5 · dark  · rose
+  "#fdba74", // tap 6 · light · orange
+  "#065f46", // tap 7 · dark  · emerald
+  "#86efac", // tap 8 · light · green
+] as const;
+
+/** A liability is not a peer of an asset; slate is the one hue absent from
+ *  the asset rotation. */
+export const LIABILITY_HEX = "#475569";
+
+/** Near-black on purpose: against adjacent colour bands, an overlay line has
+ *  to read as "not a series". */
+export const NET_HEX = "#111827";
+
+/** CSS custom property names, in slot order. */
 export const SERIES_VARS = Array.from(
   { length: SERIES_SLOTS },
   (_, i) => `--chart-series-${i + 1}`,
@@ -35,6 +69,20 @@ export const SERIES_VARS = Array.from(
 
 export const LIABILITY_VAR = "--chart-liability";
 export const NET_VAR = "--chart-net";
+
+/**
+ * The ten tokens as inline custom properties, for the chart's root element.
+ *
+ * Spread onto a `style` prop. This is what makes `--chart-*` real in the DOM
+ * without a stylesheet declaration Tailwind would drop.
+ */
+export function chartTokenStyle(): Record<string, string> {
+  const style: Record<string, string> = {};
+  SERIES_VARS.forEach((name, i) => (style[name] = SERIES_HEX[i]));
+  style[LIABILITY_VAR] = LIABILITY_HEX;
+  style[NET_VAR] = NET_HEX;
+  return style;
+}
 
 /**
  * The 1px stroke a LIGHT fill carries — its dark partner's hue.
@@ -73,9 +121,15 @@ export function seriesIndex(accounts: Account[]): Map<string, number | null> {
   return slots;
 }
 
-/** The CSS variable reference an account's mark is filled with. */
+/**
+ * The colour an account's mark is filled with.
+ *
+ * Returns a literal hex, NOT `var(--chart-series-N)`: SVG presentation
+ * attributes do not parse `var()`, so `fill="var(…)"` silently renders black.
+ * The tokens still exist on the chart root for anything that wants them.
+ */
 export function seriesFill(slot: number | null): string {
-  return slot === null ? `var(${LIABILITY_VAR})` : `var(${SERIES_VARS[slot]})`;
+  return slot === null ? LIABILITY_HEX : SERIES_HEX[slot];
 }
 
 /** The stroke a slot's fill carries, or null for dark slots and liabilities. */

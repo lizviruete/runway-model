@@ -4,37 +4,12 @@
   --background: #ffffff;
   --foreground: #171717;
 
-  /* ---------------------------------------------------------------------
-     Chart series palette (V2.1 item 5 · design package §5).
-     THE ONLY TOKEN ADDITIONS IN THIS RELEASE — no new spacing, radius or
-     type values.
-
-     Alternating dark/light by tap position: adjacent bands differ in
-     luminance as well as hue, which is what survives grayscale and
-     dichromatic vision. Light fills carry the 1px stroke of their dark
-     partner so a thin band never disappears against white.
-
-     Per ruling (u): eight categorical series cannot pairwise separate —
-     all-pairs separation tops out at five — so colour here is a SECONDARY
-     channel. The legend's tap number, the 2px surface gap between segments
-     and the named legend/tooltip rows are what carry identity.
-     --------------------------------------------------------------------- */
-  --chart-series-1: #0f766e; /* tap 1 · dark  · teal */
-  --chart-series-2: #7dd3fc; /* tap 2 · light · sky      (stroke #0284c7) */
-  --chart-series-3: #4338ca; /* tap 3 · dark  · indigo */
-  --chart-series-4: #f0abfc; /* tap 4 · light · fuchsia  (stroke #c026d3) */
-  --chart-series-5: #be123c; /* tap 5 · dark  · rose */
-  --chart-series-6: #fdba74; /* tap 6 · light · orange   (stroke #ea580c) */
-  --chart-series-7: #065f46; /* tap 7 · dark  · emerald */
-  --chart-series-8: #86efac; /* tap 8 · light · green    (stroke #16a34a) */
-
-  /* Out of rotation: a liability is not a peer of an asset, and slate is
-     deliberately the one hue absent from the asset rotation. */
-  --chart-liability: #475569;
-
-  /* Near-black on purpose: against adjacent colour bands, an overlay line
-     has to read as "not a series". */
-  --chart-net: #111827;
+  /* The ten --chart-* palette tokens are NOT declared here.
+     Tailwind v4 strips custom properties that no CSS rule references, and
+     these are only ever read from TypeScript — declared in
+     lib/engine/chartSeries.ts and projected onto the chart root as real
+     custom properties by `chartTokenStyle()`. One source of truth, and one
+     that cannot be silently removed by the CSS pipeline. */
 }
 
 @theme inline {

@@ -296,6 +296,16 @@ Re-deriving the four light values with the darks fixed reaches worst all-pairs C
 
 **Eight categorical series cannot pairwise separate. All-pairs separation tops out at five.** This is a property of the colour space, not of §5's choices, so churning the palette to get closer buys nothing.
 
+### For V3 — do not re-run this search, and do not treat repetition as a defect
+
+**Eight series already sit past the wall.** The table above is the break-even, measured: five is the last count at which every pair separates.
+
+V3 adds three account types — company stock / RSUs, HSA, CD / treasury — so scenarios with **nine or more accounts stop being rare**. §5's fallback (the rotation repeats from tap 1 with a 12% lightness shift beyond eight) is therefore **not a compromise made for convenience. It is the only available answer.**
+
+It is acceptable precisely **because colour was never the identifier.** Once the tap number, the surface gap and the named legend and tooltip rows carry identity, a repeated hue costs scanning speed and nothing else. A future version that reads the repetition as a defect and goes looking for a ninth distinguishable hue will not find one — the search above already failed to find an eighth.
+
+If nine-plus accounts become the common case rather than the tail, the answer is a different *encoding* — small multiples, a folded "Other" band, or composite marks — never more hues.
+
 **Therefore the palette is kept exactly as §5 specifies**, and robustness comes from making colour *secondary*:
 
 - the **tap number in the legend entry**, so position and number are the primary channel — a collision degrades to "harder to scan", not "cannot tell which band is which";

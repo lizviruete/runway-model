@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { drawsBand, seriesFill, seriesIndex, seriesStroke, SERIES_SLOTS } from "./chartSeries";
+import {
+  chartTokenStyle,
+  drawsBand,
+  LIABILITY_HEX,
+  NET_HEX,
+  seriesFill,
+  seriesIndex,
+  seriesStroke,
+  SERIES_HEX,
+  SERIES_SLOTS,
+} from "./chartSeries";
 import { defaultExpectedReturn, defaultOngoingCost, defaultTaxTreatment } from "./defaults";
 import type { Account, AccountType } from "./types";
 
@@ -90,10 +100,38 @@ describe("seriesIndex — rotation length", () => {
 });
 
 describe("fills and strokes", () => {
-  it("maps slots to the ten tokens and nothing else", () => {
-    expect(seriesFill(0)).toBe("var(--chart-series-1)");
-    expect(seriesFill(7)).toBe("var(--chart-series-8)");
-    expect(seriesFill(null)).toBe("var(--chart-liability)");
+  it("returns a literal hex, NOT var() — a presentation attribute cannot parse it", () => {
+    // `fill="var(--chart-series-1)"` renders BLACK: SVG presentation attributes
+    // do not resolve custom properties. Caught in the browser, not by a test.
+    expect(seriesFill(0)).toBe(SERIES_HEX[0]);
+    expect(seriesFill(7)).toBe(SERIES_HEX[7]);
+    expect(seriesFill(null)).toBe(LIABILITY_HEX);
+    for (const slot of [0, 3, 7, null]) {
+      expect(seriesFill(slot)).toMatch(/^#[0-9a-f]{6}$/);
+    }
+  });
+
+  it("projects all ten tokens onto the chart root", () => {
+    // Declared in TS because Tailwind v4 strips custom properties no CSS rule
+    // references — but they must still EXIST as real custom properties.
+    const style = chartTokenStyle();
+    expect(Object.keys(style)).toHaveLength(10);
+    expect(style["--chart-series-1"]).toBe(SERIES_HEX[0]);
+    expect(style["--chart-series-8"]).toBe(SERIES_HEX[7]);
+    expect(style["--chart-liability"]).toBe(LIABILITY_HEX);
+    expect(style["--chart-net"]).toBe(NET_HEX);
+    // Every value is a literal colour, never a var() reference to itself.
+    for (const v of Object.values(style)) expect(v).toMatch(/^#[0-9a-f]{6}$/);
+  });
+
+  it("defines exactly the ten tokens the release is allowed to add", () => {
+    expect(Object.keys(chartTokenStyle()).sort()).toEqual(
+      [
+        "--chart-liability",
+        "--chart-net",
+        ...Array.from({ length: 8 }, (_, i) => `--chart-series-${i + 1}`),
+      ].sort(),
+    );
   });
 
   it("gives every LIGHT slot a stroke and every dark slot none", () => {
