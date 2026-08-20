@@ -8,7 +8,7 @@
 // =============================================================================
 
 import { accountDisplayName, accountDisplayNames } from "./accountName";
-import { isCreditType } from "./defaults";
+import { isCreditType, returnCategory } from "./defaults";
 import { amountForMonth, expenseCategory, seededAmount } from "./expenses";
 import {
   addDays,
@@ -20,6 +20,7 @@ import {
   followingApril15,
   monthInRange,
   monthKey,
+  monthStartOf,
   monthsInclusive,
   parseISO,
   sameMonth,
@@ -59,6 +60,12 @@ interface MonthAccumulator {
   estimated: LedgerEstimates;
 }
 
+/** Transaction label per return category — see `returnCategory`. */
+const RETURN_LABEL = {
+  interestEarned: "Interest earned",
+  growth: "Growth",
+} as const;
+
 function add(amounts: LedgerAmounts, cat: LedgerCategory, value: number): void {
   if (value === 0) return;
   amounts[cat] = (amounts[cat] ?? 0) + value;
@@ -86,6 +93,21 @@ function tappable(s: AccountState): number {
 /** Net liquid contribution of an account: assets add, credit debt subtracts. */
 function netLiquid(s: AccountState): number {
   return s.isCredit ? -s.drawn : s.balance;
+}
+
+/**
+ * Is the early-withdrawal penalty waived for a withdrawal on `onDate`?
+ *
+ * Deliberately NOT gated on account type. The field only renders for pre-tax
+ * accounts, but 59½ governs Roth earnings too — so if the month is set, the
+ * engine honours it whatever the type, rather than keeping a second rule in
+ * sync with the UI's.
+ */
+export function penaltyWaivedAt(account: Account, onDate: string): boolean {
+  if (!account.penaltyFreeMonth) return false; // blank: the penalty applies throughout
+  const from = monthStartOf(account.penaltyFreeMonth);
+  if (!from) return false; // unparseable: fall back to blank, never to "waived"
+  return compareISO(firstOfMonth(onDate), from) >= 0;
 }
 
 export function simulate(scenario: Scenario): SimulationResult {
@@ -163,7 +185,16 @@ export function simulate(scenario: Scenario): SimulationResult {
   function scheduleTax(s: AccountState, amount: number, onDate: string): void {
     const t = s.account.taxTreatment;
     const tax = amount * t.taxableFraction * t.effectiveRate;
-    const penalty = amount * t.penalizedFraction * t.earlyPenaltyRate;
+    // The early-withdrawal penalty is decided by the month the money was TAKEN,
+    // never by the month the bill falls due. A pre-tax withdrawal in Feb 2027
+    // is paid the following April 2028, and it stays penalized even if the
+    // holder turns 59½ in March 2027 — the penalty attaches to the withdrawal.
+    // The boundary is inclusive: a withdrawal IN the crossing month is waived.
+    // Blank, past, future and after-horizon all fall out of this one test.
+    // Only the penalty is waived; ordinary-income tax is untouched.
+    const penalty = penaltyWaivedAt(s.account, onDate)
+      ? 0
+      : amount * t.penalizedFraction * t.earlyPenaltyRate;
     if (tax === 0 && penalty === 0) return;
     const dueDate =
       t.timing === "immediate" ? firstOfMonth(onDate) : followingApril15(onDate);
@@ -217,17 +248,30 @@ export function simulate(scenario: Scenario): SimulationResult {
     let inflowTotal = 0;
     let outflowTotal = 0;
 
-    // ---- 1. interest earned (yield accrues into the account) --------------
+    // ---- 1. expected return (accrues into the account) --------------------
+    // Runs BEFORE any withdrawal, so it is computed on the OPENING balance —
+    // the mechanic the hardcoded HYSA yield already used, unchanged.
     for (const s of states) {
-      if (s.isCredit || s.account.ongoingCost.kind !== "interest_earned") continue;
-      const interest = s.balance * (s.account.ongoingCost.annualRate / 12);
-      if (interest <= 0) continue;
-      s.balance += interest;
-      inflowTotal += interest;
-      add(acc.get(s.account.id)!.inflows, "interestEarned", interest);
+      if (s.isCredit) continue;
+      const rate = s.account.expectedReturn;
+      if (rate === 0) continue;
+      // A negative rate is legal (§2 allows −20%) and shrinks the balance. It
+      // is capped at the balance so an asset can never go negative.
+      const change = Math.max(-s.balance, s.balance * (rate / 12));
+      if (change === 0) continue;
+      const category = returnCategory(s.account.type);
+      const a = acc.get(s.account.id)!;
+      s.balance += change;
+      if (change > 0) {
+        inflowTotal += change;
+        add(a.inflows, category, change);
+      } else {
+        outflowTotal += -change;
+        add(a.outflows, category, -change);
+      }
       // Computed from a rate — modeled by nature, not an entered figure.
-      markEstimate(acc.get(s.account.id)!.estimated, "interestEarned", true);
-      tx(monthStart, s, "interestEarned", interest, "Interest earned", true);
+      markEstimate(a.estimated, category, true);
+      tx(monthStart, s, category, change, RETURN_LABEL[category], true);
     }
 
     // ---- 2. credit interest on balances drawn before this month ----------

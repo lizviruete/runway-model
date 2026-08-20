@@ -1,7 +1,42 @@
 // Scenario-editing helpers shared by the UI. Pure, immutable transforms.
 
-import { defaultOngoingCost, defaultTaxTreatment, isCreditType } from "./engine/defaults";
+import {
+  defaultExpectedReturn,
+  defaultOngoingCost,
+  defaultTaxTreatment,
+  isCreditType,
+} from "./engine/defaults";
 import type { Account, AccountType, Scenario } from "./engine/types";
+
+/**
+ * EVERY field derived from the account TYPE, in one object.
+ *
+ * `applyTypeDefaults` spreads this over an existing account, and TypeScript
+ * cannot see a stale field through a spread — excess-property checks do not
+ * fire there. So the guard is structural: add a type-derived field HERE and a
+ * type change resets it everywhere, automatically. `scenario.test.ts`
+ * enumerates these keys and asserts each one resets, because the compiler
+ * will not.
+ */
+function typeDerived(
+  type: AccountType,
+): Pick<Account, "taxTreatment" | "ongoingCost" | "expectedReturn" | "penaltyFreeMonth"> {
+  return {
+    taxTreatment: defaultTaxTreatment(type),
+    ongoingCost: defaultOngoingCost(type),
+    expectedReturn: defaultExpectedReturn(type),
+    // §3: changing the type away from pre-tax discards the penalty-free month.
+    penaltyFreeMonth: undefined,
+  };
+}
+
+/** The keys `typeDerived` owns — exported so a test can enumerate them. */
+export const TYPE_DERIVED_KEYS = [
+  "taxTreatment",
+  "ongoingCost",
+  "expectedReturn",
+  "penaltyFreeMonth",
+] as const;
 
 let fallbackCounter = 0;
 function newId(prefix: string): string {
@@ -26,8 +61,7 @@ export function newAccount(type: AccountType, priority: number): Account {
     type,
     balance: meta ? 10_000 : 5_000,
     depletionPriority: priority,
-    taxTreatment: defaultTaxTreatment(type),
-    ongoingCost: defaultOngoingCost(type),
+    ...typeDerived(type),
   };
 }
 
@@ -45,16 +79,11 @@ export function moveAccount(accounts: Account[], from: number, to: number): Acco
   return renumber(next);
 }
 
-/** When an account's type changes, re-default its tax/cost implications.
+/** When an account's type changes, re-default every type-derived field.
  *  The name is left alone — a name the user typed is never overwritten, and an
  *  empty one keeps falling back to whatever the new type is called. */
 export function applyTypeDefaults(account: Account, type: AccountType): Account {
-  return {
-    ...account,
-    type,
-    taxTreatment: defaultTaxTreatment(type),
-    ongoingCost: defaultOngoingCost(type),
-  };
+  return { ...account, type, ...typeDerived(type) };
 }
 
 /** Replace one account by id within a scenario. */

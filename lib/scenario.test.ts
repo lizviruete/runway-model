@@ -1,8 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { applyTypeDefaults, moveAccount, newAccount, renumber, updateAccount } from "./scenario";
+import {
+  applyTypeDefaults,
+  moveAccount,
+  newAccount,
+  renumber,
+  TYPE_DERIVED_KEYS,
+  updateAccount,
+} from "./scenario";
 import { accountDisplayName } from "./engine/accountName";
-import { ACCOUNT_TYPE_META } from "./engine/defaults";
-import type { AccountType } from "./engine/types";
+import {
+  ACCOUNT_TYPE_META,
+  defaultExpectedReturn,
+  defaultOngoingCost,
+  defaultTaxTreatment,
+} from "./engine/defaults";
+import type { Account, AccountType } from "./engine/types";
 import { createSampleScenario } from "./sample";
 
 describe("newAccount", () => {
@@ -50,6 +62,64 @@ describe("renumber / moveAccount", () => {
   it("is a no-op for out-of-range targets", () => {
     expect(moveAccount(base, 0, -1)).toBe(base);
     expect(moveAccount(base, 0, base.length)).toBe(base);
+  });
+});
+
+describe("applyTypeDefaults — every type-derived field resets", () => {
+  // THE COMPILER CANNOT SEE THIS. `applyTypeDefaults` spreads the old account
+  // and overrides fields; excess-property checks do not fire through a spread,
+  // so a field added to `Account` but forgotten in `typeDerived` would survive
+  // a type change silently. This test is the guard.
+  it("resets EVERY key `typeDerived` owns, enumerated", () => {
+    const dirty: Account = {
+      ...newAccount("pretax", 1),
+      expectedReturn: 0.19, // a rate the user set on the pre-tax account
+      penaltyFreeMonth: "2027-03",
+      ongoingCost: { kind: "credit_interest", annualRate: 0.31 },
+      taxTreatment: { ...defaultTaxTreatment("pretax"), effectiveRate: 0.99 },
+    };
+    const moved = applyTypeDefaults(dirty, "checking");
+
+    for (const key of TYPE_DERIVED_KEYS) {
+      expect(moved[key], `${key} survived a type change`).not.toEqual(dirty[key]);
+    }
+    // …and each lands on the new type's default.
+    expect(moved.expectedReturn).toBe(defaultExpectedReturn("checking"));
+    expect(moved.ongoingCost).toEqual(defaultOngoingCost("checking"));
+    expect(moved.taxTreatment).toEqual(defaultTaxTreatment("checking"));
+    expect(moved.penaltyFreeMonth).toBeUndefined();
+  });
+
+  it("does not grow a return on a type that cannot have one", () => {
+    // The concrete bug: a 6% brokerage retyped as everyday checking would keep
+    // compounding at 6% forever.
+    const brokerage = newAccount("brokerage", 1);
+    expect(brokerage.expectedReturn).toBe(0.06);
+    expect(applyTypeDefaults(brokerage, "checking").expectedReturn).toBe(0);
+    expect(applyTypeDefaults(brokerage, "savings").expectedReturn).toBe(0);
+  });
+
+  it("discards the penalty-free month when the type moves away from pre-tax (§3)", () => {
+    const ira = { ...newAccount("pretax", 1), penaltyFreeMonth: "2027-03" };
+    expect(applyTypeDefaults(ira, "brokerage").penaltyFreeMonth).toBeUndefined();
+    expect(applyTypeDefaults(ira, "roth").penaltyFreeMonth).toBeUndefined();
+    // …and re-typing back to pre-tax does not resurrect it.
+    expect(applyTypeDefaults(applyTypeDefaults(ira, "roth"), "pretax").penaltyFreeMonth)
+      .toBeUndefined();
+  });
+
+  it("seeds a new account with its type's default return", () => {
+    expect(newAccount("hysa", 1).expectedReturn).toBe(0.04);
+    expect(newAccount("roth", 1).expectedReturn).toBe(0.06);
+    expect(newAccount("other", 1).expectedReturn).toBe(0);
+    expect(newAccount("checking", 1).expectedReturn).toBe(0);
+    expect(newAccount("credit_line", 1).expectedReturn).toBe(0);
+    // A liability's rate stays a COST.
+    expect(newAccount("credit_line", 1).ongoingCost.annualRate).toBe(0.085);
+  });
+
+  it("never leaves a yield on ongoingCost — that field is for costs only", () => {
+    expect(newAccount("hysa", 1).ongoingCost).toEqual({ kind: "none", annualRate: 0 });
   });
 });
 

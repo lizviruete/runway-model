@@ -12,8 +12,11 @@ describe("visibleMonthCount", () => {
 
   it("keeps the baseline a clean ~12-month view despite a 60-month horizon", () => {
     expect(baseRes.projection.length).toBe(60);
-    // baseline cash-zero ~month 9 → window floors at 12
-    expect(visibleMonthCount(baseRes, null, false)).toBe(12);
+    // Baseline cash-zero sits just past month 9 (9.00 after item 3 gave the
+    // eligible accounts their default return — it was 8.94 before), so the
+    // window lands on 13. The point of the test is that it is a short view and
+    // not the full 60.
+    expect(visibleMonthCount(baseRes, null, false)).toBe(13);
   });
 
   it("shows the full horizon when the CURRENT scenario is sustainable", () => {
@@ -24,7 +27,7 @@ describe("visibleMonthCount", () => {
   it("windows to the current cash-zero when the BASELINE survives (no forced 60)", () => {
     // Current craters (~month 9), baseline is sustainable — a surviving baseline
     // alone must NOT stretch to the full horizon (the long flat-zero-tail bug).
-    expect(visibleMonthCount(baseRes, roleRes, true)).toBe(12);
+    expect(visibleMonthCount(baseRes, roleRes, true)).toBe(13);
   });
 
   it("collapses the empty/all-zeros canvas to the floor, not 60 flat-zero months", () => {

@@ -51,7 +51,8 @@ export const ACCOUNT_TYPE_META: Record<AccountType, AccountTypeMeta> = {
     label: "High-yield savings",
     helper: "Savings that earns interest. No tax to withdraw; yield is modeled as a small inflow.",
     taxTreatment: NO_TAX,
-    ongoingCost: { kind: "interest_earned", annualRate: 0.04 },
+    // The yield moved to `expectedReturn` in v3 — `ongoingCost` is a COST only.
+    ongoingCost: NO_COST,
     isCredit: false,
   },
   brokerage: {
@@ -130,6 +131,67 @@ export const ACCOUNT_TYPE_ORDER: AccountType[] = [
 
 export function isCreditType(type: AccountType): boolean {
   return ACCOUNT_TYPE_META[type].isCredit;
+}
+
+// -----------------------------------------------------------------------------
+// Expected return (V2.1 item 3)
+//
+// A default is an assumption the user did not make: it must be labelled,
+// reversible, and never silently changed. These are the ONE place they live.
+// -----------------------------------------------------------------------------
+
+/** Upward's default expected annual return, as a fraction, per account type. */
+export const DEFAULT_EXPECTED_RETURN: Record<AccountType, number> = {
+  // The repo's existing HYSA yield, carried over unchanged. (The design
+  // package's 4.2% illustrates the pattern; it is not normative, and churning
+  // a live value for 0.2% would move every existing scenario for nothing.)
+  hysa: 0.04,
+  brokerage: 0.06,
+  roth: 0.06,
+  pretax: 0.06,
+  other: 0,
+  // Ineligible — no Assumptions panel at all, rather than a disabled field.
+  checking: 0,
+  savings: 0,
+  // A liability's rate is a COST and lives on `ongoingCost`. Untouched.
+  credit_line: 0,
+};
+
+/**
+ * Whether this type gets an Assumptions panel with a return field.
+ * Ineligible types show NO panel rather than a greyed input — an empty
+ * disabled field reads as broken.
+ */
+export function supportsExpectedReturn(type: AccountType): boolean {
+  return type === "hysa" || type === "brokerage" || type === "roth" || type === "pretax" || type === "other";
+}
+
+/** Only pre-tax retirement carries an early-withdrawal penalty date (§3). */
+export function supportsPenaltyFreeMonth(type: AccountType): boolean {
+  return type === "pretax";
+}
+
+/**
+ * Which ledger category this type's return posts under.
+ *
+ * Cash savings EARN interest; investments and retirement accounts GROW through
+ * capital appreciation. Calling a brokerage's appreciation "Interest" is
+ * factually wrong, and it reads as broken once returns can be negative
+ * ("≈ Interest −$400"). The face copy in §2 makes the same distinction.
+ */
+export function returnCategory(type: AccountType): "interestEarned" | "growth" {
+  return type === "hysa" || type === "savings" || type === "checking"
+    ? "interestEarned"
+    : "growth";
+}
+
+/** The verb the face uses for this type's return: "earns" or "grows". */
+export function returnVerb(type: AccountType): "earns" | "grows" {
+  return returnCategory(type) === "interestEarned" ? "earns" : "grows";
+}
+
+export function defaultExpectedReturn(type: AccountType): number {
+  return DEFAULT_EXPECTED_RETURN[type];
 }
 
 /** Fresh copies of the default tax/cost for a type (safe to mutate/edit). */

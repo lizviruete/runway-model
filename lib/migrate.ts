@@ -8,8 +8,9 @@
 // THIS FILE IS THE ONLY PLACE THAT KNOWS WHAT AN OLD SCENARIO LOOKED LIKE.
 // The v1 shapes below are local interfaces on purpose: `lib/engine/types.ts`
 // describes the CURRENT contract and nothing else, so old shapes never
-// accumulate there. When v3 arrives, the same pattern holds — add a `v2 -> v3`
-// step here and leave the live types alone.
+// accumulate there. Steps CHAIN: a v1 payload runs v1->v2 then v2->v3, so each
+// step only has to know about the one before it. When v4 arrives, add a step
+// here and leave the live types alone.
 //
 // It is total: it never throws, and it never half-migrates. A payload either
 // validates completely and comes out as a current Scenario, or it is rejected
@@ -18,11 +19,12 @@
 // numbers, which is the worst failure this product can have.
 // =============================================================================
 
+import { DEFAULT_EXPECTED_RETURN } from "./engine/defaults";
 import { seededLine } from "./engine/expenses";
-import type { FlowEvent, Levers, Scenario, StepChange } from "./engine/types";
+import type { Account, AccountType, FlowEvent, Levers, Scenario, StepChange } from "./engine/types";
 
 /** The shape this codebase currently writes. Bump when `Scenario` changes. */
-export const SCENARIO_VERSION = 2;
+export const SCENARIO_VERSION = 3;
 
 /**
  * Belt-and-braces stamp, applied on every WRITE path.
@@ -168,6 +170,52 @@ function levers1to2(raw: V1Levers, timelineStart: string): Levers | null {
 }
 
 // -----------------------------------------------------------------------------
+// v2 -> v3 — expected return moves off `ongoingCost`; penalty-free month added
+// -----------------------------------------------------------------------------
+
+/** v2 account fields this step reads. Everything else passes through. */
+interface V2Account {
+  type?: unknown;
+  ongoingCost?: { kind?: unknown; annualRate?: unknown };
+}
+
+/**
+ * Give every account an `expectedReturn`, and stop `ongoingCost` meaning two
+ * different things.
+ *
+ * - A v2 HYSA carried its yield on `ongoingCost.kind === "interest_earned"`.
+ *   That rate moves to `expectedReturn` verbatim — the user's own number is
+ *   never silently changed — and its `ongoingCost` is cleared.
+ * - Every other ELIGIBLE type (brokerage, Roth, pre-tax) had no way to express
+ *   a return at all, so it takes the type default. This DOES move the numbers
+ *   on an existing saved scenario, deliberately: a brokerage that never grew
+ *   was the defect, not a preference. The rate is labelled on the card face and
+ *   resettable in one click.
+ * - Ineligible types (checking, savings, credit line) get 0. A credit line's
+ *   APR stays on `ongoingCost`, where a cost belongs.
+ */
+function accounts2to3(raw: unknown[]): Account[] {
+  return raw.map((entry) => {
+    const a = (isObject(entry) ? entry : {}) as V2Account & Record<string, unknown>;
+    const type = a.type as AccountType;
+    const known = typeof type === "string" && type in DEFAULT_EXPECTED_RETURN;
+    const carried =
+      a.ongoingCost?.kind === "interest_earned" && isFiniteNumber(a.ongoingCost.annualRate)
+        ? a.ongoingCost.annualRate
+        : null;
+    return {
+      ...(a as unknown as Account),
+      expectedReturn: carried ?? (known ? DEFAULT_EXPECTED_RETURN[type] : 0),
+      // A yield is not a cost. Clear it so nothing double-counts.
+      ongoingCost:
+        carried !== null
+          ? { kind: "none" as const, annualRate: 0 }
+          : ((a.ongoingCost ?? { kind: "none", annualRate: 0 }) as Account["ongoingCost"]),
+    };
+  });
+}
+
+// -----------------------------------------------------------------------------
 // entry point
 // -----------------------------------------------------------------------------
 
@@ -193,15 +241,23 @@ function readCommon(raw: Record<string, unknown>): Pick<
   };
 }
 
+/** Versions this build knows how to read. */
+const KNOWN_VERSIONS = [1, 2, 3] as const;
+
 /**
  * Bring any persisted scenario up to the current shape.
  *
+ * Steps CHAIN: a v1 payload runs `v1 -> v2` then `v2 -> v3`, so each step only
+ * has to know about the one before it.
+ *
  * Version handling, per ruling (o):
  * - missing or `1` -> migrate from v1
- * - `2`            -> current, validated and passed through
- * - anything else  -> REJECTED. A version from the future is not a v1 payload,
- *                     and guessing at it is strictly worse than declining: a
- *                     later deploy will know how to read it, this one will not.
+ * - `2`            -> migrate from v2
+ * - `3`            -> current, validated and passed through
+ * - anything else  -> REJECTED. A version from the future is not an old
+ *                     payload, and guessing at it is strictly worse than
+ *                     declining: a later deploy will know how to read it, this
+ *                     one will not.
  *
  * Never throws. Returns null when the payload cannot be migrated safely.
  */
@@ -209,13 +265,16 @@ export function migrateScenario(raw: unknown): Scenario | null {
   try {
     if (!isObject(raw)) return null;
 
-    const version = raw.version === undefined ? 1 : raw.version;
-    if (version !== 1 && version !== SCENARIO_VERSION) return null;
+    const declared = raw.version === undefined ? 1 : raw.version;
+    if (typeof declared !== "number") return null;
+    if (!KNOWN_VERSIONS.includes(declared as (typeof KNOWN_VERSIONS)[number])) return null;
+    const version: number = declared;
 
     const common = readCommon(raw);
     if (!common) return null;
     if (!isObject(raw.levers)) return null;
 
+    // ---- levers: v1 -> v2 (the expense primitive) --------------------------
     let levers: Levers | null;
     if (version === 1) {
       levers = levers1to2(raw.levers as unknown as V1Levers, common.timeline.start);
@@ -235,7 +294,11 @@ export function migrateScenario(raw: unknown): Scenario | null {
     }
     if (!levers) return null;
 
-    return { ...common, version: SCENARIO_VERSION, levers };
+    // ---- accounts: v2 -> v3 (expected return off `ongoingCost`) ------------
+    const accounts =
+      version < 3 ? accounts2to3(common.accounts) : (common.accounts as Account[]);
+
+    return { ...common, accounts, version: SCENARIO_VERSION, levers };
   } catch {
     // Defensive: a hostile payload must degrade to "nothing stored", never throw
     // on the render path.

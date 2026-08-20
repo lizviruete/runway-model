@@ -33,6 +33,21 @@ export function monthKey(iso: string): string {
   return `${y}-${pad(m)}`;
 }
 
+/**
+ * Normalize a `YYYY-MM` month (as an `<input type="month">` produces) OR a full
+ * ISO date to the ISO first of that month. `parseISO` needs a day component, so
+ * anything month-shaped has to come through here first.
+ */
+export function monthStartOf(monthOrDate: string): string | null {
+  const [y, m] = monthOrDate.split("-");
+  if (!y || !m || y.length !== 4 || Number.isNaN(Number(y)) || Number.isNaN(Number(m))) {
+    return null;
+  }
+  const mm = Number(m);
+  if (mm < 1 || mm > 12) return null;
+  return `${y}-${pad(mm)}-01`;
+}
+
 export function daysInMonth(y: number, m: number): number {
   // m is 1–12; day 0 of next month = last day of this month.
   return new Date(Date.UTC(y, m, 0)).getUTCDate();

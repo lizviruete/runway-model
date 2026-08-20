@@ -12,7 +12,11 @@
 // =============================================================================
 
 import { addMonths, daysInMonth, firstOfMonth, parseISO, toISO } from "./engine/dates";
-import { defaultOngoingCost, defaultTaxTreatment } from "./engine/defaults";
+import {
+  defaultExpectedReturn,
+  defaultOngoingCost,
+  defaultTaxTreatment,
+} from "./engine/defaults";
 import { seededLine } from "./engine/expenses";
 import { SCENARIO_VERSION } from "./migrate";
 import type { Account, AccountType, Scenario } from "./engine/types";
@@ -45,6 +49,7 @@ function account(
     depletionPriority,
     taxTreatment: defaultTaxTreatment(type),
     ongoingCost: defaultOngoingCost(type),
+    expectedReturn: defaultExpectedReturn(type),
     ...extra,
   };
 }

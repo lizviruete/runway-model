@@ -173,6 +173,111 @@ describe("v1 -> v2 mapping", () => {
 });
 
 // =============================================================================
+// v2 -> v3 mapping — expected return off `ongoingCost`
+// =============================================================================
+
+describe("v2 -> v3 mapping", () => {
+  /** A v2 account: no `expectedReturn`, yield still on `ongoingCost`. */
+  function v2Account(type: string, ongoingCost?: Record<string, unknown>) {
+    return {
+      id: `acc-${type}`,
+      name: "",
+      type,
+      balance: 10_000,
+      depletionPriority: 1,
+      taxTreatment: {
+        effectiveRate: 0,
+        taxableFraction: 0,
+        earlyPenaltyRate: 0,
+        penalizedFraction: 0,
+        timing: "immediate",
+      },
+      ongoingCost: ongoingCost ?? { kind: "none", annualRate: 0 },
+    };
+  }
+
+  /** A whole v2 scenario (post-expense-primitive, pre-expected-return). */
+  function v2(accounts: unknown[]): Record<string, unknown> {
+    return {
+      ...v1(),
+      version: 2,
+      accounts,
+      levers: {
+        incomeEvents: [],
+        expenseEvents: [
+          { id: "exp-housing", label: "Housing / rent", amount: 0, kind: "recurring", startDate: "2026-07-01", seeded: "housing" },
+          { id: "exp-living", label: "Living spend", amount: 0, kind: "recurring", startDate: "2026-07-01", isEstimate: true, seeded: "living" },
+        ],
+      },
+    };
+  }
+
+  const migrated = (accounts: unknown[]) => migrateScenario(v2(accounts))!.accounts;
+
+  it("carries a v2 HYSA yield onto expectedReturn verbatim", () => {
+    // The user's own number, never silently changed — even when it differs
+    // from the type default.
+    const [a] = migrated([v2Account("hysa", { kind: "interest_earned", annualRate: 0.037 })]);
+    expect(a.expectedReturn).toBe(0.037);
+  });
+
+  it("clears the yield off ongoingCost so nothing double-counts", () => {
+    const [a] = migrated([v2Account("hysa", { kind: "interest_earned", annualRate: 0.04 })]);
+    expect(a.ongoingCost).toEqual({ kind: "none", annualRate: 0 });
+  });
+
+  it("defaults eligible types that had no way to express a return", () => {
+    const out = migrated([
+      v2Account("brokerage"),
+      v2Account("roth"),
+      v2Account("pretax"),
+      v2Account("other"),
+    ]);
+    expect(out.map((a) => a.expectedReturn)).toEqual([0.06, 0.06, 0.06, 0]);
+  });
+
+  it("gives ineligible types 0", () => {
+    const out = migrated([v2Account("checking"), v2Account("savings")]);
+    expect(out.map((a) => a.expectedReturn)).toEqual([0, 0]);
+  });
+
+  it("leaves a credit line's APR on ongoingCost, where a COST belongs", () => {
+    const [a] = migrated([
+      v2Account("credit_line", { kind: "credit_interest", annualRate: 0.085 }),
+    ]);
+    expect(a.expectedReturn).toBe(0);
+    expect(a.ongoingCost).toEqual({ kind: "credit_interest", annualRate: 0.085 });
+  });
+
+  it("leaves penaltyFreeMonth unset — it is new, with nothing to migrate", () => {
+    const [a] = migrated([v2Account("pretax")]);
+    expect(a.penaltyFreeMonth).toBeUndefined();
+  });
+
+  it("preserves every other account field", () => {
+    const [a] = migrated([{ ...v2Account("brokerage"), name: "Fidelity", userNote: "joint" }]);
+    expect(a.name).toBe("Fidelity");
+    expect(a.userNote).toBe("joint");
+    expect(a.balance).toBe(10_000);
+  });
+
+  it("CHAINS: a v1 payload runs v1->v2 then v2->v3 in one pass", () => {
+    // The v1 fixture's account is a checking account, so it lands at 0 —
+    // but it still comes out with the field, and with the v2 lever collapse.
+    const s = migrateScenario(v1())!;
+    expect(s.version).toBe(SCENARIO_VERSION);
+    expect(s.accounts[0].expectedReturn).toBe(0);
+    expect(lines(s)).toHaveLength(2); // v1 -> v2 also happened
+  });
+
+  it("passes a v3 payload through untouched", () => {
+    const v3 = createSampleScenario("2026-07-01");
+    const out = migrateScenario(structuredClone(v3))!;
+    expect(out.accounts).toEqual(v3.accounts);
+  });
+});
+
+// =============================================================================
 // version handling — ruling (o)
 // =============================================================================
 
@@ -197,7 +302,7 @@ describe("version handling", () => {
   it("REJECTS a version from the future rather than guessing", () => {
     // Ruling (o): a later deploy will know how to read it; this one must not
     // attempt a v1 migration on it.
-    expect(migrateScenario({ ...createSampleScenario(), version: 3 })).toBeNull();
+    expect(migrateScenario({ ...createSampleScenario(), version: 4 })).toBeNull();
     expect(migrateScenario({ ...createSampleScenario(), version: 99 })).toBeNull();
   });
 
@@ -449,15 +554,51 @@ describe("acceptance: a real v1 ?s= link is unchanged by the migration", () => {
     "b3VudCI6MzIwMCwia2luZCI6Im9uZW9mZiIsInN0YXJ0RGF0ZSI6IjIwMjYtMDktMTUifV19LCJiYXNlbGluZU1vbnRobHlT" +
     "cGVuZCI6NjUwMH0";
 
-  it("decodes, migrates, and produces the identical runway", () => {
+  it("produces the ORIGINAL runway exactly, once item 3's returns are zeroed", () => {
+    // The strong form of the acceptance bar. Item 3 deliberately gives eligible
+    // accounts a return (ruling a), so the raw runway moves — see the next
+    // test. Zeroing just that one new input must reproduce the captured figures
+    // to the last decimal, which proves the migration changed NOTHING else.
     const s = decodeScenario(V1_LINK);
     expect(s).not.toBeNull();
+    const noReturns = {
+      ...s!,
+      accounts: s!.accounts.map((a) => ({ ...a, expectedReturn: 0 })),
+    };
 
-    const r = simulate(s!).runway;
+    const r = simulate(noReturns).runway;
     expect(r.cashZeroDate).toBe("2026-11-30");
     expect(r.months).toBeCloseTo(4.993839835728953, 10);
     expect(r.weeks).toBeCloseTo(21.714285714285715, 10);
     expect(r.survivesHorizon).toBe(false);
+  });
+
+  it("gains runway from item 3's returns — the one deliberate change", () => {
+    // Ruling (a): eligible accounts migrate to their type default rather than
+    // to 0. A brokerage that never grew was the defect, not a preference. On
+    // this fixture ($4k HYSA, $5k brokerage, $3k Roth, $3k pre-tax) it moves
+    // cash-zero 12 days later. The rate is labelled on the card face and
+    // resettable in one click.
+    const r = simulate(decodeScenario(V1_LINK)!).runway;
+    expect(r.cashZeroDate).toBe("2026-12-12");
+    expect(r.survivesHorizon).toBe(false);
+  });
+
+  it("carries the old HYSA yield across verbatim, and defaults the rest", () => {
+    const byId = new Map(decodeScenario(V1_LINK)!.accounts.map((a) => [a.id, a]));
+    // The user's own number is never silently changed.
+    expect(byId.get("acc-hysa")!.expectedReturn).toBe(0.04);
+    // …and its yield is no longer double-counted as an ongoing COST.
+    expect(byId.get("acc-hysa")!.ongoingCost).toEqual({ kind: "none", annualRate: 0 });
+    // Types that had no way to express a return take the default.
+    expect(byId.get("acc-brokerage")!.expectedReturn).toBe(0.06);
+    expect(byId.get("acc-roth")!.expectedReturn).toBe(0.06);
+    expect(byId.get("acc-pretax")!.expectedReturn).toBe(0.06);
+    // Ineligible types get 0; the HELOC keeps its APR on ongoingCost.
+    expect(byId.get("acc-checking")!.expectedReturn).toBe(0);
+    expect(byId.get("acc-savings")!.expectedReturn).toBe(0);
+    expect(byId.get("acc-heloc")!.expectedReturn).toBe(0);
+    expect(byId.get("acc-heloc")!.ongoingCost.annualRate).toBe(0.085);
   });
 
   it("lands the old lever values on the right lines", () => {
