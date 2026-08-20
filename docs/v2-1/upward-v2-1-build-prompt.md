@@ -241,9 +241,21 @@ No modal, no backend, no data capture, no event tracking. The real in-app feedba
 
 From the design package **appendix**, observations 1 and 2. Both surfaces were on the original do-not-change list; they are now explicitly **in scope** and removed from that list.
 
-**a. Demote the OUT column.** OUT currently renders red on every row of a projection where outflow is the expected state — the exact wall of red item 7 was written to avoid. Change it to `#334155` and let the new NET column carry direction.
+**a. Stop colouring by SIGN in the ledger.** — *widened, see ruling (z).*
 
-*Deliberately not changed, so nothing gets "helpfully" tidied:* the IN column stays green, and the per-account lines inside an expanded month keep their existing green/red treatment. The resulting asymmetry is a known follow-up decision to be made against the live render, not an oversight. Do not touch either.
+> The original scope was "demote the OUT column". QA of item 7's never-positive state found that too narrow. `LedgerView`'s `Amount` component colours by sign (`value < 0 → text-red-600`), so once a scenario depletes, **OPENING and CLOSING go red on every row too**:
+>
+> | OPENING | IN | OUT | NET | CLOSING |
+> | --- | --- | --- | --- | --- |
+> | red | — | red | neutral | red |
+>
+> Item 7's one calm column sits between three loud ones, which is why its restraint is invisible on the page.
+
+**The sign is already in the number and the direction is already in the column header. Colour adds only alarm.** That is the same argument that made NET neutral, applied consistently instead of to one column.
+
+`Amount` is used in **five** places — the OPENING and CLOSING cells, the per-account `open`/`close` figures inside an expanded month, and the Transactions view's amount column. All of them stop colouring by sign.
+
+*Deliberately not changed:* the IN column stays green, and the category pills inside an expanded month keep their green/red treatment. Those encode a **category** (money in, money out), not the sign of a running balance — a distinction the widened rule turns on.
 
 **b. Soften the cash-zero date.** The CASH-ZERO DATE stat-card figure is the largest red element in the product and, for the primary user, the most anxiety-loaded number on the page. Render the **figure** in near-black (`#111827`), same size and weight.
 
@@ -252,6 +264,10 @@ From the design package **appendix**, observations 1 and 2. Both surfaces were o
 *Flag for review rather than change:* with cash-zero neutral, the green VS. BASELINE figure becomes the only colored stat card. If vs-baseline can render a worse-than-baseline state, note how it currently does so and surface the inconsistency. Do not resolve it.
 
 **Tests.** No functional change; assert the cash-zero *value* and the chart marker are unchanged, and that only presentation moved.
+
+**Not in scope, recorded so it does not get re-proposed:** capping or truncating the ledger in the never-positive state. See ruling (aa) — the perceived heaviness is colour, not row count.
+
+**Deferred until after this item:** the never-positive summary line's copy. See ruling (bb) — it is being judged above three red columns today, so re-judge it once they are neutral.
 
 ---
 
@@ -266,7 +282,7 @@ From the design package **appendix**, observations 1 and 2. Both surfaces were o
 - Any LizBuilds brand harmonization. See the design package appendix for why the chart palette in particular should be treated as a permanent exception.
 - Any change to V1. It is a relic.
 
-**Everything on the design package's "Do not change" list still holds**, with the two exceptions named in item 10 (the OUT column and the cash-zero date figure).
+**Everything on the design package's "Do not change" list still holds**, with the exceptions named in item 10 — sign-colouring throughout the ledger (ruling z) and the cash-zero date figure.
 
 ---
 

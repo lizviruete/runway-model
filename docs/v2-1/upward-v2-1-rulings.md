@@ -401,10 +401,89 @@ This is the **second time §6's own example contradicted its own copy states**:
 
 ---
 
+## z · Stop colouring by SIGN in the ledger — item 10 widened
+
+**Item 10 as written was too narrow.** The design package appendix flagged only the OUT column. QA of item 7's never-positive state found it is worse than that: `LedgerView`'s `Amount` component colours by **sign** (`value < 0 → text-red-600`), so once a scenario depletes, OPENING and CLOSING go red on every row too.
+
+In the never-positive state the ledger reads:
+
+| OPENING | IN | OUT | NET | CLOSING |
+| --- | --- | --- | --- | --- |
+| red | — | red | neutral | red |
+
+**Item 7's one calm column sits between three loud ones, which is why its restraint is invisible on the page.** Shipping NET neutral and stopping there did not deliver the change it was written to deliver.
+
+### The rule
+
+**The sign is already in the number and the direction is already in the column header. Colour adds only alarm.**
+
+That is the same argument that made NET neutral, applied **consistently instead of to one column**. A rule applied to one instance of the thing it describes is not a rule; it is a special case, and the surrounding inconsistency swallows it.
+
+### Scope
+
+`Amount` is used in **five** places, all of which stop colouring by sign:
+
+1. the OPENING cell
+2. the CLOSING cell
+3. the per-account `open` figure inside an expanded month
+4. the per-account `close` figure inside an expanded month
+5. the Transactions view's amount column
+
+Still in scope for item 10 as previously agreed: **the cash-zero date figure goes near-black** (`#111827`), and **the chart's dashed cash-zero marker stays red**.
+
+### What keeps its colour, and why
+
+The IN column stays green, and the category pills inside an expanded month keep their green/red treatment. Those encode a **category** — money in, money out — not the sign of a running balance. The distinction is the whole rule: colour may carry a *kind*, which the number cannot; it may not restate a *sign*, which the number already carries.
+
+---
+
+## aa · The ledger is not capped or truncated in the never-positive state
+
+Capping the ledger, or collapsing it behind an expand click once a scenario depletes, was proposed during item 7 QA and **rejected**.
+
+**The ledger claims to be "the auditable trail behind every number".** Putting the trail behind an expand click undermines the one thing it is for. Auditability that requires a click to reach is not auditability; it is a footnote.
+
+Three reasons the perceived problem is not the row count:
+
+1. **People jump to a month to check it** — they do not read all 24 rows top to bottom. The cost of length is not paid the way it looks like it is paid.
+2. **The chart already carries the shape.** Whoever wants the trend has it; whoever opens the ledger wants a specific month.
+3. **The perceived heaviness is colour, not row count** — which is ruling (z), and is the change that actually addresses it.
+
+Fix the cause. Do not truncate the evidence.
+
+---
+
+## bb · Two summary-line copy candidates, deferred until after item 10
+
+The never-positive summary currently reads:
+
+> Burning about $7,980/mo · no month turns positive in this view
+
+It lands as a **verdict**. Two candidates were considered and **both are deferred deliberately** — that line is currently being judged *above three red columns*. Re-judge it once the ledger is neutral (ruling z), so we **move one variable rather than two**.
+
+### (a) WITHDRAWN — "steady through Aug 2027"
+
+Aug 2027 is only the end of the 24-month window. The phrasing implies **something changes at a date where nothing does**.
+
+Same error class as ruling (y): **a date attached to a claim the date does not support.** Withdrawn, not deferred — it is wrong, not merely unready.
+
+### (b) CANDIDATE — keep the existing copy, add a pointer to the levers
+
+Phrase it as **mechanism, never outcome**:
+
+- ✅ "every number here responds to the levers on the left"
+- ❌ "test scenarios for a more favorable outcome"
+
+The second **promises a better outcome is available**, which for someone with no income may simply be false, and reads as *"have you tried having more money"* — reproducing the tone problem one line down from where item 7 fixed it.
+
+A pointer is defensible because **it names something real**: the levers exist, and the summary bar is `aria-live`, so changing one announces the new number immediately. **It promises a mechanism, not a result.**
+
+---
+
 ## Also confirmed
 
 - **The build prompt's order wins** over the design package README's BUILD ORDER block, which uses its own numbering. Read the README's order as already-translated.
-- **The design package's "Do not change" list is partly superseded** — by item 10 (OUT column, cash-zero figure), item 5 (Exclude button on the card face), and item 1 (the name field's placeholder). Each is sanctioned by its own section. Where an item's section and the do-not-change list disagree, **the item wins.**
+- **The design package's "Do not change" list is partly superseded** — by item 10 (sign-colouring throughout the ledger per ruling (z), and the cash-zero figure), item 5 (Exclude button on the card face), and item 1 (the name field's placeholder). Each is sanctioned by its own section. Where an item's section and the do-not-change list disagree, **the item wins.**
 - On names: `applyTypeDefaults()` does **not** touch the name on a type change. Never overwrite a name the user typed. Superseded in part by ruling (l) — there is no prefill to re-apply, so an unnamed account simply keeps falling back to whatever the new type is called.
 
 ---
