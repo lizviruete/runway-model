@@ -249,24 +249,30 @@ A useful shape for these tests: assert the exact string, and separately assert `
 
 ---
 
-## t · Test builders spread overrides; they never enumerate fields
+## t · Tests must not depend on POSITION
 
-Three variants of one hazard have now shipped past the compiler in this release. **Opposite mechanisms, identical symptom: a test that silently stops testing what it claims.**
+Array index, column order, field order, spread, or enumeration — **any of these silently rebinds when the shape changes**, and the test keeps passing while asserting something different.
+
+Four instances this release, one hazard:
 
 | Where | Mechanism | What it hid |
 | --- | --- | --- |
 | `applyTypeDefaults` spreading over `Account` | spread kept a field it should have reset | a **stale** field (`expectedReturn` surviving a type change) |
 | `chartWindow` fixture spreading over `Levers` | spread accepted a key the type no longer had | a **removed** field (`targetMonthlySpend`, a silent no-op) |
 | `acct()` builder enumerating `Account` fields | enumeration ignored a key it did not list | a **new** field (`excluded` never reaching the engine) |
+| The CSV invariant indexing **positionally** | `f[f.length - 1]` rebound from `closing` to `net` | a **new column**, swept into the category sum |
 
-TypeScript catches none of them: excess-property checks do not fire through a spread, and `Partial<Account>` accepts a key whether or not the body reads it.
+**The CSV case is the sharpest.** The other three broke or under-tested — a failure you eventually see. That one **continued to pass while quietly asserting a different invariant**: `opening + sum(categories) = closing` became `opening + sum(categories, including closing) = net`, still green, still named the same thing, no longer true of anything.
 
-**Ruling, two parts:**
+TypeScript catches none of them: excess-property checks do not fire through a spread, `Partial<Account>` accepts a key whether or not the body reads it, and an array index is just a number.
+
+**Ruling: look things up by NAME.**
 
 1. **Test builders spread their overrides last** — `const { priority, ...overrides } = o; return { ...defaults, ...overrides }` — so a field added to the type propagates for free.
 2. **Production code that spreads a typed object keeps its type-derived fields in ONE object** (`typeDerived()`), and a test enumerates that object's keys, because the compiler cannot.
+3. **Tabular assertions resolve columns through the header**, never by index or offset — `header.indexOf("closing")`, not `f.length - 1`. The same applies to any ordered output a test slices into: transactions, ledger rows, legend entries, tooltip rows.
 
-Neither is optional going into items 6–10, all of which add fields to types the fixtures spread over.
+None of this is optional going into items 8–10, all of which touch types and outputs the fixtures read.
 
 ---
 
@@ -367,6 +373,31 @@ Two, both taken deliberately, both recorded so a later reader does not "restore"
 §5 specifies a tooltip that follows the cursor at a 12px offset and flips side 260px from the right edge. It is pinned to whichever side is away from the hovered band instead.
 
 **Ruling: keep the pinned tooltip.** §5's actual requirement is *"it never covers the hovered column"*, and pinning satisfies that **more robustly** than offset-plus-flip, which has an edge case at every boundary the flip has to detect. It is also calmer — and calm is the product principle, not a preference.
+
+---
+
+## y · A turnaround is a change in your RECURRING position, not a one-off top-up
+
+On the example scenario, item 7's summary bar read **"turns positive Sep 2026"**. September nets +$7,769 — entirely because of an $8,000 one-off asset sale. Its recurring position is **−$231**, and October returns to −$3,931 and never recovers.
+
+**Ruling: a month qualifies as the turnaround only if its net would still oppose the regime with one-time inflows excluded.** The engine records `MonthLedger.totals.oneTimeInflow` (one-off income events and asset-sale proceeds), so `net − oneTimeInflow` is the recurring position and the turnaround reads from that. Per ruling (n) it is recorded once, in the engine, rather than re-derived.
+
+**Why not persistence-to-end-of-window.** That rule fails the case where income genuinely resumes in March and one bad month lands in June — it would report "no month turns positive" and understate real good news. Option (b) has no equivalent failure, because **a one-off extends your RUNWAY**, which the runway figure and the cash-zero date already report. The turnaround clause reports when your **monthly position** flips. Conflating them tells someone their situation improved when only their balance did.
+
+And "turns positive Sep 2026" for a one-month blip is **false hope handed to someone in financial distress** — the worst direction to be wrong in, which rules out simply accepting it.
+
+### The asymmetry is deliberate
+
+**The rate still includes the spike**, shown as a range. The range is already honest about variation, and a range makes no claim about the future. **The turnaround is a date claim** and has to mean something durable. Different obligations, different treatment.
+
+### The pattern — a design package's worked example is not a test case
+
+This is the **second time §6's own example contradicted its own copy states**:
+
+1. **Gross vs net burn rate** — the summary reads "Burning about $7,900/mo" beside a row reading `IN $3,913 · OUT −$7,900 · NET −$3,987`, pairing a gross rate with a net turnaround in one sentence.
+2. **This** — the six states were written assuming a single sign change, and the package's own example scenario violates that assumption with a one-off inflow.
+
+**Treat a design package's worked example as illustrative, not normative.** The copy states are the specification; the example is a sketch drawn to show them off, and it can quietly encode assumptions the states do not hold to. Where they disagree, work out which is true rather than implementing the example.
 
 ---
 

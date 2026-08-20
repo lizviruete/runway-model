@@ -1302,7 +1302,9 @@ describe("no account to operate from (V2.1 item 5 — P1)", () => {
     // The shape is intact, so every consumer still renders.
     expect(res.months).toHaveLength(6);
     expect(res.projection).toHaveLength(6);
-    expect(res.months[0].totals).toEqual({ opening: 0, inflow: 0, outflow: 0, net: 0, closing: 0 });
+    expect(res.months[0].totals).toEqual({
+      opening: 0, inflow: 0, outflow: 0, net: 0, oneTimeInflow: 0, closing: 0,
+    });
   });
 
   it("still names every held account, so the legend and ledger are not blank", () => {
