@@ -81,8 +81,33 @@ export interface Account {
   manualDraw?: ManualDraw;
   /** Defaulted from `type`, user-editable. */
   taxTreatment: TaxTreatment;
-  /** Defaulted from `type`, user-editable. */
+  /**
+   * Recurring COST of holding this account — credit interest on a liability.
+   * Deliberately NOT overloaded to also mean "return": a cost on a liability
+   * and a return on an asset are the two things §2 requires stay distinct.
+   * Defaulted from `type`, user-editable.
+   */
   ongoingCost: OngoingCost;
+  /**
+   * Expected annual return on an ASSET, as a fraction (0.06 = 6%/yr).
+   * Applied monthly to the opening balance, before tax. May be NEGATIVE
+   * (§2 allows −20%…40%), in which case it shrinks the balance.
+   *
+   * Required, with 0 on ineligible types: blank would mean "a construction
+   * site forgot", and there is a meaningful per-type default, so absence is a
+   * bug the compiler should catch.
+   */
+  expectedReturn: number;
+  /**
+   * Optional `YYYY-MM` from which the early-withdrawal penalty stops applying
+   * — the month the holder reaches 59½.
+   *
+   * Optional because blank IS the default and means something real: the
+   * penalty applies to every withdrawal in the projection. Age is a lever
+   * here, not a demographic fact, which is why this is a date and not a
+   * checkbox — a checkbox cannot express crossing 59½ mid-projection.
+   */
+  penaltyFreeMonth?: string;
   /** Free text — especially for the "Other" type. */
   userNote?: string;
 }
@@ -222,7 +247,8 @@ export type LedgerCategory =
   | "assetCarry" // recurring carrying cost of a held asset (pre-sale)
   | "tax" // scheduled tax/penalty payments coming due
   | "creditInterest" // interest paid on drawn credit
-  | "interestEarned" // yield on HYSA etc.
+  | "interestEarned" // yield on cash savings (HYSA) — the account "earns"
+  | "growth" // capital appreciation on investments/retirement — it "grows"
   | "tapIn" // cash received from another account (waterfall transfer in)
   | "tapOut"; // cash sent to the operating account (waterfall transfer out)
 

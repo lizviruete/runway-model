@@ -42,6 +42,30 @@ export function sanitizePercentText(raw: string): string {
   return `${intPart === "" ? "0" : intPart}.${frac.slice(0, 1)}`;
 }
 
+/**
+ * Sanitize a SIGNED percent field — one leading `-` is kept, everything else
+ * matches `sanitizePercentText`.
+ *
+ * Opt-in, for the expected-return field alone. Every other numeric input in the
+ * app is deliberately non-negative; a return is the one figure where a minus
+ * sign means something real (§2 allows −20%), and a field that accepted `-5`
+ * while the engine ignored it would be the worst outcome of all.
+ */
+export function sanitizeSignedPercentText(raw: string): string {
+  const negative = raw.trimStart().startsWith("-");
+  const body = sanitizePercentText(raw);
+  return negative ? `-${body}` : body;
+}
+
+/** Signed percent text → the stored fraction, truncated toward zero to one
+ *  decimal of percent so the displayed % and the stored value always agree. */
+export function textToSignedPercent(text: string): number {
+  const pct = Number(text);
+  if (!Number.isFinite(pct)) return 0;
+  const oneDecimal = Math.trunc(pct * 10) / 10;
+  return oneDecimal / 100;
+}
+
 /** Strip leading zeros while keeping a lone `0` (and `""`). */
 function stripLeadingZeros(s: string): string {
   if (s === "") return "";

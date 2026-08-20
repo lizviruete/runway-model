@@ -28,6 +28,10 @@ function acct(
     depletionPriority: o.priority,
     taxTreatment: o.taxTreatment ?? defaultTaxTreatment(o.type),
     ongoingCost: o.ongoingCost ?? defaultOngoingCost(o.type),
+    // 0 unless a test is about returns — keeps unrelated assertions focused.
+    // Production defaults are covered by defaults/migration tests instead.
+    expectedReturn: o.expectedReturn ?? 0,
+    penaltyFreeMonth: o.penaltyFreeMonth,
     manualDraw: o.manualDraw,
     userNote: o.userNote,
   };
@@ -233,7 +237,7 @@ describe("HYSA interest earned", () => {
             balance: 10_000,
             priority: 1,
             id: "hysa",
-            ongoingCost: { kind: "interest_earned", annualRate: 0.04 },
+            expectedReturn: 0.04,
           }),
         ],
       }),
@@ -756,7 +760,7 @@ describe("monthly net cash flow (V2.1 item 2)", () => {
       scn({
         accounts: [
           acct({ type: "checking", balance: 1_000, priority: 1 }),
-          acct({ type: "hysa", balance: 50_000, priority: 2, id: "h" }),
+          acct({ type: "hysa", balance: 50_000, priority: 2, id: "h", expectedReturn: 0.04 }),
         ],
         spend: 3_000,
       }),
@@ -840,7 +844,7 @@ describe("per-line estimate flag drives ≈ (V2.1 item 2)", () => {
       scn({
         accounts: [
           acct({ type: "checking", balance: 1_000, priority: 1 }),
-          acct({ type: "hysa", balance: 50_000, priority: 2, id: "h" }),
+          acct({ type: "hysa", balance: 50_000, priority: 2, id: "h", expectedReturn: 0.04 }),
         ],
         spend: 3_000,
       }),
@@ -862,5 +866,254 @@ describe("per-line estimate flag drives ≈ (V2.1 item 2)", () => {
     const first = (cat: string) => res.transactions.find((t) => t.category === cat)!;
     expect(first("living").isEstimate).toBe(true);
     expect(first("housing").isEstimate).toBeUndefined(); // entered, not modeled
+  });
+});
+
+// =============================================================================
+
+describe("expected return (V2.1 item 3)", () => {
+  const withReturn = (type: AccountType, rate: number, balance = 10_000) =>
+    simulate(
+      scn({
+        start: "2026-01-01",
+        end: "2026-03-31",
+        accounts: [acct({ type, balance, priority: 1, id: "a", expectedReturn: rate })],
+      }),
+    );
+
+  it("matches the old HYSA mechanic exactly: opening balance, monthly, as an inflow", () => {
+    const res = withReturn("hysa", 0.04);
+    const jan = res.months[0].accounts[0];
+    // Same arithmetic the hardcoded yield used — no second convention.
+    expect(jan.inflows.interestEarned).toBeCloseTo(10_000 * (0.04 / 12), 9);
+    expect(jan.outflows.interestEarned).toBeUndefined();
+  });
+
+  it("computes on the OPENING balance, before any withdrawal that month", () => {
+    // Spend drains the account in the same month; the return must still be
+    // based on what was there at the start, not on the reduced balance.
+    const res = simulate(
+      scn({
+        start: "2026-01-01",
+        end: "2026-01-31",
+        accounts: [acct({ type: "hysa", balance: 10_000, priority: 1, expectedReturn: 0.12 })],
+        spend: 4_000,
+      }),
+    );
+    const jan = res.months[0].accounts[0];
+    expect(jan.inflows.interestEarned).toBeCloseTo(10_000 * 0.01, 9); // NOT 6,000 * 0.01
+  });
+
+  it("posts investment and retirement returns under `growth`, not `interestEarned`", () => {
+    // Calling capital appreciation "Interest" is factually wrong.
+    for (const type of ["brokerage", "roth", "pretax", "other"] as AccountType[]) {
+      const m = withReturn(type, 0.06).months[0].accounts[0];
+      expect(m.inflows.growth).toBeCloseTo(10_000 * 0.005, 9);
+      expect(m.inflows.interestEarned).toBeUndefined();
+    }
+    // …while cash savings still EARN interest.
+    for (const type of ["hysa", "savings", "checking"] as AccountType[]) {
+      const m = withReturn(type, 0.06).months[0].accounts[0];
+      expect(m.inflows.interestEarned).toBeCloseTo(10_000 * 0.005, 9);
+      expect(m.inflows.growth).toBeUndefined();
+    }
+  });
+
+  it("applies NO return at 0%, and none at all to a credit line", () => {
+    expect(withReturn("brokerage", 0).months[0].accounts[0].inflows.growth).toBeUndefined();
+    const credit = simulate(
+      scn({
+        accounts: [
+          acct({ type: "checking", balance: 5_000, priority: 1 }),
+          acct({ type: "credit_line", balance: 50_000, priority: 2, id: "c", expectedReturn: 0.06 }),
+        ],
+      }),
+    );
+    for (const m of credit.months) {
+      const line = m.accounts.find((a) => a.accountId === "c")!;
+      expect(line.inflows.growth).toBeUndefined();
+      expect(line.inflows.interestEarned).toBeUndefined();
+    }
+  });
+
+  it("SHRINKS the balance on a negative rate, posting it as an outflow", () => {
+    // §2 allows −20%. Silently ignoring a legal negative rate would be the
+    // worst outcome: the field accepts it and the model pretends otherwise.
+    const res = withReturn("brokerage", -0.12);
+    const jan = res.months[0].accounts[0];
+    expect(jan.outflows.growth).toBeCloseTo(10_000 * 0.01, 9);
+    expect(jan.inflows.growth).toBeUndefined();
+    expect(res.accountTimelines[0].balances[0]).toBeLessThan(10_000);
+    // …and it compounds downward.
+    expect(res.accountTimelines[0].balances[2]).toBeLessThan(
+      res.accountTimelines[0].balances[0],
+    );
+  });
+
+  it("never drives an asset balance below zero, however negative the rate", () => {
+    // The loss is capped at the balance. Validation keeps a typed rate inside
+    // −20%…40%, but a hand-crafted `?s=` payload is not bound by the field, and
+    // a rate steeper than −1200%/yr would otherwise push an ASSET negative —
+    // which the ledger would then read as debt.
+    //
+    // Deliberately no spending and a separate operating account: an operating
+    // balance CAN go negative from an uncovered shortfall (that is how
+    // cash-zero is detected), and this test is about the return alone.
+    const res = simulate(
+      scn({
+        start: "2026-01-01",
+        end: "2026-06-30",
+        accounts: [
+          acct({ type: "checking", balance: 100_000, priority: 1 }),
+          acct({ type: "brokerage", balance: 1_000, priority: 2, id: "b", expectedReturn: -24 }),
+        ],
+      }),
+    );
+    const balances = res.accountTimelines.find((t) => t.accountId === "b")!.balances;
+    for (const b of balances) expect(b).toBeGreaterThanOrEqual(0);
+    expect(balances[0]).toBe(0); // wiped out in month one, but not past zero
+  });
+
+  it("decays a realistic negative rate geometrically without going negative", () => {
+    const res = simulate(
+      scn({
+        start: "2026-01-01",
+        end: "2026-12-31",
+        accounts: [
+          acct({ type: "checking", balance: 100_000, priority: 1 }),
+          acct({ type: "brokerage", balance: 10_000, priority: 2, id: "b", expectedReturn: -0.2 }),
+        ],
+      }),
+    );
+    const balances = res.accountTimelines.find((t) => t.accountId === "b")!.balances;
+    expect(balances[0]).toBeCloseTo(10_000 * (1 - 0.2 / 12), 6);
+    expect(balances[11]).toBeLessThan(balances[0]);
+    for (const b of balances) expect(b).toBeGreaterThan(0);
+  });
+
+  it("counts the return in the month's net cash flow", () => {
+    const res = withReturn("hysa", 0.12);
+    expect(res.months[0].totals.net).toBeCloseTo(10_000 * 0.01, 9);
+  });
+});
+
+describe("penalty-free date (V2.1 item 4)", () => {
+  /** A pre-tax account tapped by a manual draw in `drawMonth`. */
+  const drawIn = (drawDate: string, penaltyFreeMonth?: string) =>
+    simulate(
+      scn({
+        start: "2026-01-01",
+        end: "2027-12-31",
+        accounts: [
+          acct({ type: "checking", balance: 100_000, priority: 1 }),
+          acct({
+            type: "pretax",
+            balance: 50_000,
+            priority: 2,
+            id: "ira",
+            penaltyFreeMonth,
+            manualDraw: { date: drawDate, amount: 10_000 },
+          }),
+        ],
+      }),
+    ).scheduledTaxes[0];
+
+  const TAX = 10_000 * 0.22;
+  const PENALTY = 10_000 * 0.1;
+
+  it("blank — the penalty applies to every withdrawal", () => {
+    const t = drawIn("2026-06-15");
+    expect(t.penalty).toBeCloseTo(PENALTY, 9);
+    expect(t.tax).toBeCloseTo(TAX, 9);
+  });
+
+  it("past month — the penalty never applies", () => {
+    const t = drawIn("2026-06-15", "2025-03");
+    expect(t.penalty).toBe(0);
+    expect(t.tax).toBeCloseTo(TAX, 9); // ordinary income is UNCHANGED
+  });
+
+  it("future month — penalized before, waived from that month forward", () => {
+    expect(drawIn("2026-06-15", "2026-09").penalty).toBeCloseTo(PENALTY, 9);
+    expect(drawIn("2026-10-15", "2026-09").penalty).toBe(0);
+  });
+
+  it("a withdrawal in the EXACT crossing month is waived", () => {
+    // The boundary is inclusive: "waives from that month forward" includes it.
+    const t = drawIn("2026-09-15", "2026-09");
+    expect(t.penalty).toBe(0);
+    expect(t.tax).toBeCloseTo(TAX, 9);
+  });
+
+  it("a withdrawal the month BEFORE the crossing is still penalized", () => {
+    expect(drawIn("2026-08-31", "2026-09").penalty).toBeCloseTo(PENALTY, 9);
+  });
+
+  it("a month set after the horizon end never waives anything", () => {
+    expect(drawIn("2027-06-15", "2030-01").penalty).toBeCloseTo(PENALTY, 9);
+  });
+
+  it("decides on the WITHDRAWAL month, never on the due date", () => {
+    // A Feb 2027 pre-tax withdrawal is paid the following April 2028. Crossing
+    // 59½ in March 2027 must NOT retroactively waive it — the penalty attaches
+    // to when the money was taken.
+    const t = drawIn("2027-02-15", "2027-03");
+    expect(t.dueDate).toBe("2028-04-15");
+    expect(t.penalty).toBeCloseTo(PENALTY, 9);
+  });
+
+  it("applies the waiver to waterfall withdrawals too, not just manual draws", () => {
+    // Both paths funnel through the same choke point; this proves it.
+    const res = (penaltyFreeMonth?: string) =>
+      simulate(
+        scn({
+          start: "2026-01-01",
+          end: "2026-12-31",
+          accounts: [
+            acct({ type: "checking", balance: 1_000, priority: 1 }),
+            acct({ type: "pretax", balance: 100_000, priority: 2, id: "ira", penaltyFreeMonth }),
+          ],
+          spend: 4_000,
+        }),
+      ).scheduledTaxes;
+    const penalized = res().reduce((s, t) => s + t.penalty, 0);
+    const waived = res("2025-01").reduce((s, t) => s + t.penalty, 0);
+    expect(penalized).toBeGreaterThan(0);
+    expect(waived).toBe(0);
+  });
+
+  it("spans a mid-projection crossing: penalized before, waived after", () => {
+    // The case a checkbox cannot express, and the one producing wrong numbers.
+    const taxes = simulate(
+      scn({
+        start: "2026-01-01",
+        end: "2026-12-31",
+        accounts: [
+          acct({ type: "checking", balance: 1_000, priority: 1 }),
+          acct({
+            type: "pretax",
+            balance: 200_000,
+            priority: 2,
+            id: "ira",
+            penaltyFreeMonth: "2026-07",
+          }),
+        ],
+        spend: 5_000,
+      }),
+    ).scheduledTaxes;
+    const before = taxes.filter((t) => t.withdrawalDate < "2026-07-01");
+    const after = taxes.filter((t) => t.withdrawalDate >= "2026-07-01");
+    expect(before.length).toBeGreaterThan(0);
+    expect(after.length).toBeGreaterThan(0);
+    expect(before.every((t) => t.penalty > 0)).toBe(true);
+    expect(after.every((t) => t.penalty === 0)).toBe(true);
+    // Ordinary income tax is charged throughout, in both halves.
+    expect(taxes.every((t) => t.tax > 0)).toBe(true);
+  });
+
+  it("falls back to blank on an unparseable month, never to waived", () => {
+    for (const bad of ["", "not-a-month", "2026-13", "20xx-01"]) {
+      expect(drawIn("2026-06-15", bad).penalty).toBeCloseTo(PENALTY, 9);
+    }
   });
 });

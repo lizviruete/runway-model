@@ -34,6 +34,7 @@ function acct(id: string, type: AccountType, name: string, priority: number): Ac
     depletionPriority: priority,
     taxTreatment: defaultTaxTreatment(type),
     ongoingCost: defaultOngoingCost(type),
+    expectedReturn: 0,
   };
 }
 

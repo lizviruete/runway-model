@@ -14,6 +14,7 @@ const CATEGORIES: LedgerCategory[] = [
   "tax",
   "creditInterest",
   "interestEarned",
+  "growth",
   "tapIn",
   "tapOut",
 ];

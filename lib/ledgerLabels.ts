@@ -18,6 +18,7 @@ export const CATEGORY_LABELS: Record<LedgerCategory, string> = {
   tax: "Tax/penalty",
   creditInterest: "Credit interest",
   interestEarned: "Interest",
+  growth: "Growth",
   tapIn: "Transfer in",
   tapOut: "Transfer out",
 };

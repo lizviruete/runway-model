@@ -4,7 +4,9 @@ import {
   percentToText,
   sanitizeAmountText,
   sanitizePercentText,
+  sanitizeSignedPercentText,
   textToPercent,
+  textToSignedPercent,
   toAmount,
   toClamped,
 } from "./numberInput";
@@ -111,5 +113,36 @@ describe("formatAmount — comma-grouped resting display", () => {
     expect(formatAmount(1234567)).toBe("1,234,567");
     // The committed value behind the display stays a clean int.
     expect(toAmount(formatAmount(12000).replace(/,/g, ""))).toBe(12000);
+  });
+});
+
+describe("signed percent — the expected-return field only (V2.1 item 3)", () => {
+  it("keeps a single leading minus", () => {
+    expect(sanitizeSignedPercentText("-5")).toBe("-5");
+    expect(sanitizeSignedPercentText("-12.5")).toBe("-12.5");
+  });
+
+  it("still strips junk, extra dots and interior signs", () => {
+    expect(sanitizeSignedPercentText("-1a2")).toBe("-12");
+    expect(sanitizeSignedPercentText("-1.2.3")).toBe("-1.2");
+    expect(sanitizeSignedPercentText("1-2")).toBe("12");
+  });
+
+  it("keeps one decimal of precision, like the unsigned field", () => {
+    expect(sanitizeSignedPercentText("-7.55")).toBe("-7.5");
+  });
+
+  it("round-trips through the stored fraction, truncating toward zero", () => {
+    expect(textToSignedPercent("-5")).toBeCloseTo(-0.05, 10);
+    expect(textToSignedPercent("6")).toBeCloseTo(0.06, 10);
+    expect(textToSignedPercent("-7.55")).toBeCloseTo(-0.075, 10);
+    expect(textToSignedPercent("")).toBe(0);
+    expect(textToSignedPercent("-")).toBe(0);
+  });
+
+  it("leaves the UNSIGNED helpers non-negative — this is opt-in", () => {
+    // Every other numeric field in the app stays sign-free.
+    expect(sanitizePercentText("-5")).toBe("5");
+    expect(textToPercent("-5")).toBe(0);
   });
 });

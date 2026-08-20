@@ -12,6 +12,7 @@ function acct(id: string, type: AccountType, name: string): Account {
     depletionPriority: 1,
     taxTreatment: defaultTaxTreatment(type),
     ongoingCost: defaultOngoingCost(type),
+    expectedReturn: 0,
   };
 }
 

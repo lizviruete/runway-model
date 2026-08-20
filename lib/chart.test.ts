@@ -22,6 +22,7 @@ function acct(type: AccountType, balance: number, priority: number, extra?: Part
     depletionPriority: priority,
     taxTreatment: defaultTaxTreatment(type),
     ongoingCost: defaultOngoingCost(type),
+    expectedReturn: 0,
     ...extra,
   };
 }
