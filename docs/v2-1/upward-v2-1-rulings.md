@@ -173,8 +173,6 @@ This does **not** change the fallback itself, which is the item's actual fix, or
 
 ## m · Mutation-check new coverage before reporting a stage green
 
-> Drafted from the summary in the item 2 PR review; confirm the wording.
-
 With no rendered-layer tests (ruling (a)), "the suite is green" proves less than usual — it is easy to write a test *around* a defect rather than *for* it. Before reporting a stage done, break the thing the new tests describe and confirm they fail, then restore.
 
 Report which mutations were tried and what caught them. This is standing for every item, and it matters most for items 5 and 7, whose decidable logic is easy to assert loosely.
@@ -182,8 +180,6 @@ Report which mutations were tried and what caught them. This is standing for eve
 ---
 
 ## n · A derived fact resolves once, in the engine
-
-> Drafted from the summary in the item 2 PR review; confirm the wording.
 
 When two surfaces need the same derived number, the engine computes it and both read it. They must not each derive their own.
 
