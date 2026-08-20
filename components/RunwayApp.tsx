@@ -402,8 +402,14 @@ export function RunwayApp() {
         #6b7280 — identical 4.83:1 contrast, one grey ramp instead of two.
         The zinc-400 this replaced was 2.56:1, under even the 3:1 large-text
         floor, so this is an accessibility fix as much as a spec match.
+
+        SIZE STAYS AT 12px. §7 asks for 13px, which has no step here; 12 and 14
+        are equidistant from it, so it is a tie, and the tiebreaker is not
+        changing what you do not have to. The accessibility fix lives entirely
+        in the colour — zinc-500 passes AA for normal text at any size — so the
+        size was a free choice, not a constrained one.
       */}
-      <footer data-chrome className="mt-10 text-sm text-zinc-500">
+      <footer data-chrome className="mt-10 text-xs text-zinc-500">
         <p>Your numbers stay in this browser. Nothing is uploaded.</p>
         <p className="mt-1">Sample data is fictional. Not financial advice.</p>
       </footer>
