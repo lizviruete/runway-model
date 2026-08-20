@@ -384,8 +384,28 @@ export function RunwayApp() {
         <LedgerView result={result} baseline={baseline} scenario={scenario} />
       </Card>
 
-      <footer data-chrome className="mt-10 text-center text-xs text-zinc-400">
-        Sample data is fictional. Not financial advice.
+      {/*
+        Item 9 — the privacy line, merged into the existing footer rather than
+        stacked beside it (ruling h). One footer, one treatment: the size and
+        colour sit on the <footer> so both lines inherit them, because a size
+        difference between two lines of boilerplate reads as an accident.
+
+        PRIVACY LINE FIRST. The product raises "where does this go?" the moment
+        it asks for account balances (ruling r) — so the line that answers it
+        leads, and the disclaimer, which is boilerplate, follows.
+
+        `data-chrome` is inherited from the existing element: `.chrome-min
+        [data-chrome]` hides the whole footer in the embedded view.
+
+        Left-aligned, not centered: §7's placement, and it puts both lines on
+        the same edge as the <h1> above. zinc-500 rather than the spec's
+        #6b7280 — identical 4.83:1 contrast, one grey ramp instead of two.
+        The zinc-400 this replaced was 2.56:1, under even the 3:1 large-text
+        floor, so this is an accessibility fix as much as a spec match.
+      */}
+      <footer data-chrome className="mt-10 text-sm text-zinc-500">
+        <p>Your numbers stay in this browser. Nothing is uploaded.</p>
+        <p className="mt-1">Sample data is fictional. Not financial advice.</p>
       </footer>
     </div>
   );
