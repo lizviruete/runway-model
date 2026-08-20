@@ -106,6 +106,11 @@ export function cashZeroGapX(
   months: number,
   plotWidth: number,
 ): number | null {
+  // No series drawing at all — every account excluded, or none left. NOTHING
+  // DEPLETED: the user set it all aside. A red line announcing that money ran
+  // out today would be misleading as well as alarming, and edge state 6 is an
+  // empty plot with one line of copy, not an alarm.
+  if (series.length === 0) return null;
   const first = firstDepletedIndex(series, months);
   if (first === null || months <= 0) return null;
   const band = plotWidth / months;

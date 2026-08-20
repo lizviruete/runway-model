@@ -132,6 +132,31 @@ describe("edge state 4 — a single account", () => {
   });
 });
 
+describe("edge states 6 & 7 — NO cash-zero marker when nothing is drawing", () => {
+  // QA: the marker sat at the timeline start and its right-aligned label
+  // clipped to "ero · Aug 20". The fix is not to unclip it — it is that the
+  // marker should not exist. Nothing depleted; the user set everything aside.
+  it("suppresses the marker when every account is EXCLUDED", () => {
+    const timelines = [
+      tl({ accountId: "a", balances: [3_000, 3_000], excluded: true }),
+      tl({ accountId: "b", balances: [4_000, 4_000], excluded: true }),
+    ];
+    const drawing = drawingSeries(timelines, () => 0);
+    expect(drawing).toHaveLength(0);
+    expect(cashZeroGapX(drawing, 2, 200)).toBeNull();
+  });
+
+  it("suppresses the marker when there are NO ACCOUNTS at all", () => {
+    expect(cashZeroGapX(drawingSeries([], () => 0), 6, 600)).toBeNull();
+  });
+
+  it("still shows the marker when a real account really does deplete", () => {
+    // The suppression must not swallow the case the marker exists for.
+    const drawing = drawingSeries([tl({ accountId: "a", balances: [500, 0] })], () => 0);
+    expect(cashZeroGapX(drawing, 2, 200)).toBe(100);
+  });
+});
+
 describe("edge states 6 & 7 — all excluded, and no accounts", () => {
   it("all excluded leaves nothing drawing", () => {
     const timelines = [

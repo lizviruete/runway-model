@@ -181,6 +181,20 @@ export function RunwayChart({
             />
           ) : null}
 
+          {/* Y-AXIS TITLE — not optional. Columns invite the flow reading
+              ("this month's spending"), and this is the second independent
+              signal, alongside the view subhead, that the height is a BALANCE. */}
+          {byAccount ? (
+            <text
+              data-testid="chart-y-title"
+              transform={`translate(12, ${PAD.top + PLOT_H / 2}) rotate(-90)`}
+              textAnchor="middle"
+              className="fill-zinc-400 text-[11px]"
+            >
+              {CAPTIONS.yAxisTitle}
+            </text>
+          ) : null}
+
           {/* y gridlines + labels */}
           {yTicks.map((v) => (
             <g key={v}>
@@ -268,7 +282,12 @@ export function RunwayChart({
 
           {/* Cash-zero marker — drawn in the GAP before the first $0 column,
               never through one, so it reads as a boundary between months. */}
-          {byAccount && zeroGapX !== null && cashZeroDate ? (
+          {/* Suppressed entirely when nothing is drawing: in the all-excluded
+              and no-accounts states nothing DEPLETED — the user set it all
+              aside — so a red line announcing that money ran out today is
+              misleading as well as alarming. Edge state 6 is an empty plot,
+              axes drawn, one line of copy. */}
+          {byAccount && !emptyCaption && zeroGapX !== null && cashZeroDate ? (
             <g data-testid="chart-cash-zero">
               <line
                 x1={PAD.left + zeroGapX}
@@ -346,7 +365,11 @@ export function RunwayChart({
               <div key={row.accountId} className="flex items-baseline justify-between gap-2">
                 <span
                   className={
-                    row.excluded ? "truncate text-zinc-400 line-through" : "truncate text-zinc-600"
+                    row.excluded
+                      ? "truncate text-zinc-400 line-through"
+                      : row.kind
+                        ? "truncate text-zinc-500"
+                        : "truncate text-zinc-600"
                   }
                 >
                   {row.label}

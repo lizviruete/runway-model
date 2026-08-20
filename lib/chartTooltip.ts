@@ -23,6 +23,42 @@ export interface TooltipRow {
   excluded: boolean;
   /** True for a $0 balance — shown greyed, never dropped. */
   zero: boolean;
+  /** Set on the two RECONCILING rows, which are not accounts. */
+  kind?: "notCovered" | "creditDrawn";
+}
+
+/**
+ * The numeric value behind every tooltip row, in render order.
+ *
+ * THE ROWS MUST SUM TO NET LIQUID. The tooltip is a reconciliation, not a
+ * list: a panel where every account reads $0 while the footer reads −$66,775,
+ * with no row holding that number, reads as internally inconsistent even
+ * though the arithmetic is right.
+ *
+ * Two rows close the gap, and they are deliberately separate:
+ *
+ * - **Not covered** — the shortfall the accounts could not fund. The engine
+ *   carries it forward rather than silently stopping, which is the honest
+ *   model; this row is where it becomes visible.
+ * - **Credit drawn** — borrowed money. It is part of net liquid and was
+ *   otherwise invisible here, and it is NOT "not covered": it was covered, by
+ *   borrowing. Folding it into the shortfall would mislabel real debt.
+ */
+export function tooltipRowValues(
+  month: MonthLedger,
+  timelines: AccountTimeline[],
+  monthIndex: number,
+): { accounts: number[]; notCovered: number; creditDrawn: number } {
+  const assets = timelines.filter((t) => t.type !== "credit_line");
+  const accounts = assets.map((t) =>
+    t.excluded ? 0 : Math.max(0, t.balances[monthIndex] ?? 0),
+  );
+  // Everything the account rows cannot show: negative asset balances, and debt.
+  const notCovered = assets
+    .filter((t) => !t.excluded)
+    .reduce((sum, t) => sum + Math.min(0, t.balances[monthIndex] ?? 0), 0);
+  const creditDrawn = -month.accounts.reduce((sum, a) => sum + (a.drawn ?? 0), 0);
+  return { accounts, notCovered, creditDrawn };
 }
 
 export interface TooltipModel {
@@ -50,18 +86,39 @@ export function tooltipModel(
   monthIndex: number,
   scenario: Scenario,
 ): TooltipModel {
-  const rows: TooltipRow[] = timelines
-    .filter((t) => t.type !== "credit_line")
-    .map((t) => {
-      const balance = Math.max(0, t.balances[monthIndex] ?? 0);
-      return {
-        accountId: t.accountId,
-        label: t.name,
-        value: t.excluded ? null : formatCurrency(balance),
-        excluded: t.excluded,
-        zero: !t.excluded && balance === 0,
-      };
+  const values = tooltipRowValues(month, timelines, monthIndex);
+  const assets = timelines.filter((t) => t.type !== "credit_line");
+
+  const rows: TooltipRow[] = assets.map((t, i) => ({
+    accountId: t.accountId,
+    label: t.name,
+    value: t.excluded ? null : formatCurrency(values.accounts[i]),
+    excluded: t.excluded,
+    zero: !t.excluded && values.accounts[i] === 0,
+  }));
+
+  // The reconciling rows, appended only when they carry something. §5b already
+  // uses "Not covered" for the unfunded portion — same term, same meaning.
+  if (values.creditDrawn !== 0) {
+    rows.push({
+      accountId: "__credit-drawn",
+      label: "Credit drawn",
+      value: formatCurrency(values.creditDrawn),
+      excluded: false,
+      zero: false,
+      kind: "creditDrawn",
     });
+  }
+  if (values.notCovered !== 0) {
+    rows.push({
+      accountId: "__not-covered",
+      label: "Not covered",
+      value: formatCurrency(values.notCovered),
+      excluded: false,
+      zero: false,
+      kind: "notCovered",
+    });
+  }
 
   return {
     heading: formatMonthYear(month.date),
