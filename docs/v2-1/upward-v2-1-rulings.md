@@ -171,6 +171,60 @@ This does **not** change the fallback itself, which is the item's actual fix, or
 
 ---
 
+## m · Mutation-check new coverage before reporting a stage green
+
+> Drafted from the summary in the item 2 PR review; confirm the wording.
+
+With no rendered-layer tests (ruling (a)), "the suite is green" proves less than usual — it is easy to write a test *around* a defect rather than *for* it. Before reporting a stage done, break the thing the new tests describe and confirm they fail, then restore.
+
+Report which mutations were tried and what caught them. This is standing for every item, and it matters most for items 5 and 7, whose decidable logic is easy to assert loosely.
+
+---
+
+## n · A derived fact resolves once, in the engine
+
+> Drafted from the summary in the item 2 PR review; confirm the wording.
+
+When two surfaces need the same derived number, the engine computes it and both read it. They must not each derive their own.
+
+The case that named this: monthly **net** (in − out). The chart tooltip (item 6) and the ledger NET column (item 7) both need it, so it lands on `MonthLedger.totals.net` in item 2 — before either consumer exists. The same reasoning already applies to `accountDisplayName` (item 1), and should be the default for the excluded-account and estimate facts too: a component that re-derives is a component that can disagree.
+
+---
+
+## o · A version from the future is rejected, not guessed at
+
+The build prompt said to treat missing/unknown as v1. "Unknown" meant **no version field**, which is v1. A version from the future is a different case.
+
+**Ruling:** missing or `1` → migrate; `2` → pass through; `> 2` or unparseable → **reject**.
+
+Attempting a v1 migration on a v3 payload is strictly worse than declining it: a later deploy will know how to read it, this one should not guess. Rejection degrades to "nothing stored", which every hydration boundary already handles.
+
+---
+
+## p · Take the transaction-order change; keep one clean loop
+
+Collapsing housing, living spend and added expenses into one loop moves the asset **carrying cost** from between housing and the added expenses to after the whole list.
+
+**Ruling: take the reorder.** No financial value changes — runway, cash-zero and every monthly ledger total are identical. Only `transactions[]` display order moves, only in the Transactions view and its CSV, and only for a scenario with an asset sale that carries a monthly cost.
+
+Splitting the loop to preserve byte-identical ordering would reintroduce exactly the two-class distinction §1 exists to remove, which is a bad trade for a cosmetic property. **Note the CSV ordering change in the PR.**
+
+Worth knowing: item 8 drops the asset-sale lever from the example, so the demo path never hits this.
+
+---
+
+## q · Seeded rows get no special-case rule
+
+Seeded rows must behave exactly as user rows do. Before writing a rule, check what user rows actually do.
+
+**The finding:** user labels **are** editable after creation — `FlowModal` renders a Label field and is reopened with the existing event when a row is clicked. So seeded labels are editable too.
+
+**Consequence:** the Transactions view suppresses the category suffix when the label is **redundant** — either the category's own name or a seeded line's default label. Rename housing to "Mortgage" and "Housing · Mortgage" correctly returns, which is what a renamed user row gets.
+
+The rule is about the label being redundant, **not** about the row being seeded. A rule keyed on `seeded` is the two-class distinction sneaking back in through a different door.
+
+---
+
 ## Also confirmed
 
 - **The build prompt's order wins** over the design package README's BUILD ORDER block, which uses its own numbering. Read the README's order as already-translated.
