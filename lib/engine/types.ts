@@ -108,6 +108,14 @@ export interface Account {
    * checkbox — a checkbox cannot express crossing 59½ mid-projection.
    */
   penaltyFreeMonth?: string;
+  /**
+   * Held out of the runway. The account keeps its balance and every setting;
+   * the engine simply never touches it, so nothing accrues and nothing is
+   * drawn. Absent means included.
+   *
+   * Assets only — see `canExclude`. The flag is ignored on a liability.
+   */
+  excluded?: boolean;
   /** Free text — especially for the "Other" type. */
   userNote?: string;
 }
@@ -280,6 +288,13 @@ export interface AccountMonth {
   outflows: LedgerAmounts;
   /** Which of the above are wholly modeled — see `LedgerEstimates`. */
   estimated: LedgerEstimates;
+  /**
+   * Held out of the runway. The row is kept — the ledger sorts excluded lines
+   * to the bottom and states the held balance — but it contributes nothing to
+   * `MonthLedger.totals`, and nothing happened to it, so its inflows and
+   * outflows are always empty.
+   */
+  excluded: boolean;
 }
 
 /** A single dated transaction — the transaction-level ledger detail. */
@@ -353,7 +368,14 @@ export interface AccountTimeline {
   accountId: string;
   name: string;
   type: AccountType;
-  /** Balance at each month boundary (asset balance, or remaining credit). */
+  /**
+   * Held out of the runway. The series is KEPT so the legend can still name it
+   * in tap-order position — that is what tells a returning user why a band is
+   * missing — but it draws no band and is excluded from the axis scale.
+   */
+  excluded: boolean;
+  /** Balance at each month boundary (asset balance, or remaining credit).
+   *  Flat at the held balance while excluded: nothing happens to it. */
   balances: number[];
 }
 

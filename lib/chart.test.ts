@@ -4,6 +4,7 @@ import {
   assetTimelines,
   chartMax,
   DEFAULT_CHART_MODE,
+  legendTimelines,
   niceMax,
 } from "./chart";
 import { defaultOngoingCost, defaultTaxTreatment } from "./engine/defaults";
@@ -104,5 +105,56 @@ describe("net-liquid line vs. the asset stack", () => {
     expect(stack).toBe(15_000);
     expect(res.projection[march].netLiquid).toBe(10_000); // 15,000 − 5,000 drawn
     expect(res.projection[march].netLiquid).toBeLessThan(stack);
+  });
+});
+
+describe("excluded series: named but never drawn (V2.1 item 5)", () => {
+  const timelines = () =>
+    simulate(
+      scenario(
+        [
+          acct("checking", 3_000, 1, { id: "check" }),
+          acct("brokerage", 200_000, 2, { id: "brok", excluded: true }),
+        ],
+        "2026-01-01",
+        "2026-06-30",
+      ),
+    ).accountTimelines;
+
+  it("assetTimelines DROPS excluded series — they draw no band", () => {
+    expect(assetTimelines(timelines()).map((t) => t.accountId)).toEqual(["check"]);
+  });
+
+  it("legendTimelines KEEPS them, in tap-order position", () => {
+    // Keeping them listed is what tells a returning user why a band is missing.
+    expect(legendTimelines(timelines()).map((t) => t.accountId)).toEqual(["check", "brok"]);
+  });
+
+  it("chartMax ignores an excluded balance, so the axis is not squashed", () => {
+    // The excluded account holds $200k at FULL value — its balances are frozen,
+    // not zeroed. Left in the scale, the real $3k stack would be flattened into
+    // the floor by money that draws nothing.
+    const all = timelines();
+    const drawn = assetTimelines(all);
+    const projection = simulate(
+      scenario(
+        [
+          acct("checking", 3_000, 1, { id: "check" }),
+          acct("brokerage", 200_000, 2, { id: "brok", excluded: true }),
+        ],
+        "2026-01-01",
+        "2026-06-30",
+      ),
+    ).projection;
+
+    expect(chartMax(projection, null, drawn, false)).toBeLessThanOrEqual(5_000);
+    // …and the guard: passing the UNFILTERED list would scale to the held money.
+    expect(chartMax(projection, null, all, false)).toBeGreaterThanOrEqual(200_000);
+  });
+
+  it("the excluded series is frozen at its held balance, not zeroed", () => {
+    const brok = timelines().find((t) => t.accountId === "brok")!;
+    expect(brok.excluded).toBe(true);
+    expect(new Set(brok.balances)).toEqual(new Set([200_000]));
   });
 });

@@ -4,6 +4,7 @@ import { Fragment, useState } from "react";
 import type { LedgerCategory, SimulationResult } from "@/lib/engine/types";
 import { monthlyRowsCSV, transactionsCSV } from "@/lib/exporters";
 import { formatCurrency, formatDate, formatMonthYear } from "@/lib/format";
+import { excludedLedgerLine } from "@/lib/engine/exclusion";
 import { catLabel, isRedundantTransactionLabel } from "@/lib/ledgerLabels";
 import { SectionTitle } from "./ui";
 
@@ -114,7 +115,26 @@ export function LedgerView({ result }: { result: SimulationResult }) {
                                   a.opening !== 0 ||
                                   a.closing !== 0,
                               )
-                              .map((a) => (
+                              // Excluded lines sort to the BOTTOM (ruling i),
+                              // behind a dashed rule. Nothing happened to them,
+                              // so they carry no open/close figures — just the
+                              // balance they hold.
+                              .sort((a, b) => Number(a.excluded) - Number(b.excluded))
+                              .map((a) =>
+                                a.excluded ? (
+                                  <div
+                                    key={a.accountId}
+                                    data-testid="ledger-excluded-row"
+                                    className="flex flex-wrap items-center gap-x-2 border-t border-dashed border-zinc-200 pt-[7px] text-xs"
+                                  >
+                                    <span className="w-40 shrink-0 font-medium text-zinc-400 line-through">
+                                      {a.name}
+                                    </span>
+                                    <span className="text-zinc-400">
+                                      {excludedLedgerLine(a.opening, formatCurrency)}
+                                    </span>
+                                  </div>
+                                ) : (
                                 <div key={a.accountId} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
                                   <span className="w-40 shrink-0 font-medium text-zinc-600">{a.name}</span>
                                   <span className="text-zinc-400">open <Amount value={a.opening} /></span>
@@ -132,7 +152,8 @@ export function LedgerView({ result }: { result: SimulationResult }) {
                                   ))}
                                   <span className="text-zinc-400">close <Amount value={a.closing} /></span>
                                 </div>
-                              ))}
+                                ),
+                              )}
                           </div>
                         </td>
                       </tr>

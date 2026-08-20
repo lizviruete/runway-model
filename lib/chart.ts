@@ -9,8 +9,24 @@ export type ChartMode = "total" | "byAccount";
 /** The chart opens on the clean net-liquid view. */
 export const DEFAULT_CHART_MODE: ChartMode = "total";
 
-/** Asset timelines only — credit lines are debt, never part of the stack. */
+/**
+ * The series that actually DRAW a band: assets, minus anything excluded.
+ *
+ * Credit lines are debt and never part of the stack. Excluded accounts are
+ * filtered here — before `chartMax` — because their balances are held at full
+ * value: leaving them in would scale the y-axis to money that draws nothing,
+ * squashing the real stack against the floor.
+ *
+ * The LEGEND deliberately does not use this: it keeps excluded entries in
+ * tap-order position, which is what tells a returning user why a band is
+ * missing. See `legendTimelines`.
+ */
 export function assetTimelines(timelines: AccountTimeline[]): AccountTimeline[] {
+  return timelines.filter((t) => t.type !== "credit_line" && !t.excluded);
+}
+
+/** Every asset series the legend names, INCLUDING excluded ones in position. */
+export function legendTimelines(timelines: AccountTimeline[]): AccountTimeline[] {
   return timelines.filter((t) => t.type !== "credit_line");
 }
 

@@ -219,6 +219,28 @@ function accounts2to3(raw: unknown[]): Account[] {
 // entry point
 // -----------------------------------------------------------------------------
 
+/**
+ * Normalize the per-account fields whose WRONG VALUE would be silently wrong
+ * rather than obviously broken. Runs for every version, not just old ones.
+ *
+ * `excluded` is the case that matters: a hand-edited `"excluded": "false"` is a
+ * truthy string, so a loose read would hold an account out of the runway while
+ * the payload says the opposite — the same silent-wrong-value class as a minus
+ * sign that cannot be typed. Only a real `true` counts.
+ */
+function normalizeAccounts(accounts: unknown[]): Account[] {
+  return accounts.map((entry) => {
+    const a = (isObject(entry) ? entry : {}) as Record<string, unknown>;
+    const rest = { ...a };
+    // Drop whatever was there, then re-add only a REAL `true`.
+    delete rest.excluded;
+    return {
+      ...(rest as unknown as Account),
+      ...(a.excluded === true ? { excluded: true } : {}),
+    };
+  });
+}
+
 /** Fields every version shares, validated before any version-specific work. */
 function readCommon(raw: Record<string, unknown>): Pick<
   Scenario,
@@ -295,8 +317,10 @@ export function migrateScenario(raw: unknown): Scenario | null {
     if (!levers) return null;
 
     // ---- accounts: v2 -> v3 (expected return off `ongoingCost`) ------------
-    const accounts =
+    const converted =
       version < 3 ? accounts2to3(common.accounts) : (common.accounts as Account[]);
+    // …then normalize fields that are additive but silently wrong if malformed.
+    const accounts = normalizeAccounts(converted);
 
     return { ...common, accounts, version: SCENARIO_VERSION, levers };
   } catch {

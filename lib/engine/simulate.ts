@@ -9,6 +9,7 @@
 
 import { accountDisplayName, accountDisplayNames } from "./accountName";
 import { isCreditType, returnCategory } from "./defaults";
+import { isExcluded } from "./exclusion";
 import { amountForMonth, expenseCategory, seededAmount } from "./expenses";
 import {
   addDays,
@@ -44,6 +45,8 @@ import type {
 interface AccountState {
   account: Account;
   isCredit: boolean;
+  /** Held out of the runway — every step below skips it. */
+  excluded: boolean;
   /** Asset: spendable balance. Credit: irrelevant (use `drawn`). */
   balance: number;
   /** Credit only: amount currently borrowed. */
@@ -110,6 +113,71 @@ export function penaltyWaivedAt(account: Account, onDate: string): boolean {
   return compareISO(firstOfMonth(onDate), from) >= 0;
 }
 
+/**
+ * A well-formed result for a scenario with no account to operate from — every
+ * account excluded, or none at all.
+ *
+ * Runway is 0 and cash-zero is the timeline start: with nothing to spend from,
+ * the money is already gone. Excluded accounts still appear in the timelines
+ * and the ledger, flat at the balance they hold, so the legend keeps naming
+ * them and the ledger can say "held, not counted".
+ */
+function emptyResult(
+  scenario: Scenario,
+  states: AccountState[],
+  startMonth: string,
+  totalMonths: number,
+  nameOf: (account: Account) => string,
+): SimulationResult {
+  const monthStarts = Array.from({ length: totalMonths }, (_, i) => addMonths(startMonth, i));
+  const accountMonth = (s: AccountState): AccountMonth => ({
+    accountId: s.account.id,
+    name: nameOf(s.account),
+    type: s.account.type,
+    opening: s.isCredit ? 0 : s.balance,
+    closing: s.isCredit ? 0 : s.balance,
+    drawn: s.isCredit ? 0 : undefined,
+    inflows: {},
+    outflows: {},
+    estimated: {},
+    excluded: s.excluded,
+  });
+
+  return {
+    runway: {
+      cashZeroDate: scenario.timeline.start,
+      weeks: 0,
+      months: 0,
+      survivesHorizon: false,
+    },
+    months: monthStarts.map((date) => ({
+      monthKey: monthKey(date),
+      date,
+      accounts: states.map(accountMonth),
+      totals: { opening: 0, inflow: 0, outflow: 0, net: 0, closing: 0 },
+    })),
+    projection: monthStarts.map((date) => ({
+      date,
+      monthKey: monthKey(date),
+      netLiquid: 0,
+      totalAssets: 0,
+      totalDrawn: 0,
+    })),
+    accountTimelines: states.map((s) => ({
+      accountId: s.account.id,
+      name: nameOf(s.account),
+      type: s.account.type,
+      excluded: s.excluded,
+      balances: monthStarts.map(() => (s.isCredit ? 0 : s.balance)),
+    })),
+    transactions: [],
+    scheduledTaxes: [],
+    baselineMonthlySpend:
+      scenario.baselineMonthlySpend ?? seededAmount(scenario.levers, "living"),
+    targetMonthlySpend: seededAmount(scenario.levers, "living"),
+  };
+}
+
 export function simulate(scenario: Scenario): SimulationResult {
   const { timeline, levers } = scenario;
   const startMonth = firstOfMonth(timeline.start);
@@ -129,17 +197,37 @@ export function simulate(scenario: Scenario): SimulationResult {
     return {
       account,
       isCredit,
+      excluded: isExcluded(account),
       balance: isCredit ? 0 : account.balance,
       drawn: 0,
       limit: isCredit ? account.balance : 0,
     };
   });
-  const waterfall = [...states].sort(
+
+  /**
+   * The accounts that actually take part. An excluded account is never touched
+   * by ANY step below — no return accrues, no interest, no draw, no tap — so
+   * its `balance` stays exactly where it started and its timeline is flat.
+   *
+   * That is the whole freeze mechanic: not a snapshot that gets restored, but
+   * the absence of any mutation. Since the engine never writes back to the
+   * stored Scenario either, re-including an account reproduces the previous
+   * result by construction rather than by careful restoration.
+   */
+  const active = states.filter((s) => !s.excluded);
+  const waterfall = [...active].sort(
     (a, b) => a.account.depletionPriority - b.account.depletionPriority,
   );
-  // The operating account: first *asset* in the waterfall. Income and living
-  // costs flow through it; shortfalls cascade to later accounts.
-  const operating = waterfall.find((s) => !s.isCredit) ?? waterfall[0];
+  // The operating account: first *included* asset in the waterfall. Income and
+  // living costs flow through it; shortfalls cascade to later accounts.
+  const operating = waterfall.find((s) => !s.isCredit);
+
+  // Nothing to run: every account excluded, or none at all. Returns a
+  // well-formed zero-runway result rather than throwing — reachable today by
+  // deleting every account, which crashes the app on the spot.
+  if (!operating) {
+    return emptyResult(scenario, states, startMonth, totalMonths, nameOf);
+  }
 
   const transactions: Transaction[] = [];
   const scheduledTaxes: ScheduledTax[] = [];
@@ -152,6 +240,7 @@ export function simulate(scenario: Scenario): SimulationResult {
         accountId: s.account.id,
         name: nameOf(s.account),
         type: s.account.type,
+        excluded: s.excluded,
         balances: [],
       },
     ]),
@@ -223,7 +312,8 @@ export function simulate(scenario: Scenario): SimulationResult {
         { opening: netLiquid(s), inflows: {}, outflows: {}, estimated: {} },
       ]),
     );
-    const opening = states.reduce((sum, s) => sum + netLiquid(s), 0);
+    // Totals count INCLUDED accounts only — money held aside is not runway.
+    const opening = active.reduce((sum, s) => sum + netLiquid(s), 0);
 
     /**
      * Pull `amount` of cash from a source into operating, recording the
@@ -251,7 +341,8 @@ export function simulate(scenario: Scenario): SimulationResult {
     // ---- 1. expected return (accrues into the account) --------------------
     // Runs BEFORE any withdrawal, so it is computed on the OPENING balance —
     // the mechanic the hardcoded HYSA yield already used, unchanged.
-    for (const s of states) {
+    // `active` only: an excluded account must not grow while held aside.
+    for (const s of active) {
       if (s.isCredit) continue;
       const rate = s.account.expectedReturn;
       if (rate === 0) continue;
@@ -280,7 +371,7 @@ export function simulate(scenario: Scenario): SimulationResult {
     // Interest is paid in cash from the operating account (principal stays
     // drawn), so it is attributed to operating's ledger row in step 5d.
     const creditInterest: { name: string; interest: number }[] = [];
-    for (const s of states) {
+    for (const s of active) {
       if (!s.isCredit || s.drawn <= 0) continue;
       const interest = s.drawn * (s.account.ongoingCost.annualRate / 12);
       if (interest <= 0) continue;
@@ -288,7 +379,7 @@ export function simulate(scenario: Scenario): SimulationResult {
     }
 
     // ---- 3. manual draws scheduled this month ----------------------------
-    for (const s of states) {
+    for (const s of active) {
       const draw = s.account.manualDraw;
       if (!draw || !sameMonth(draw.date, monthStart)) continue;
       const amount = Math.min(draw.amount, tappable(s));
@@ -489,10 +580,11 @@ export function simulate(scenario: Scenario): SimulationResult {
         inflows: a.inflows,
         outflows: a.outflows,
         estimated: a.estimated,
+        excluded: s.excluded,
       };
     });
 
-    const closing = states.reduce((sum, s) => sum + netLiquid(s), 0);
+    const closing = active.reduce((sum, s) => sum + netLiquid(s), 0);
     months.push({
       monthKey: mKey,
       date: monthStart,
@@ -511,8 +603,8 @@ export function simulate(scenario: Scenario): SimulationResult {
       date: monthStart,
       monthKey: mKey,
       netLiquid: closing,
-      totalAssets: states.reduce((sum, s) => (s.isCredit ? sum : sum + s.balance), 0),
-      totalDrawn: states.reduce((sum, s) => (s.isCredit ? sum + s.drawn : sum), 0),
+      totalAssets: active.reduce((sum, s) => (s.isCredit ? sum : sum + s.balance), 0),
+      totalDrawn: active.reduce((sum, s) => (s.isCredit ? sum + s.drawn : sum), 0),
     });
   }
 

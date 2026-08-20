@@ -20,20 +20,22 @@ import type {
 function acct(
   o: { type: AccountType; balance: number; priority: number } & Partial<Account>,
 ): Account {
+  // Overrides are SPREAD, not enumerated. An enumerated builder silently drops
+  // any Account field added later — `excluded` was dropped exactly that way,
+  // and the compiler cannot see it because `Partial<Account>` accepts the key
+  // whether or not the body reads it. Spreading makes future fields propagate
+  // for free.
+  const { priority, ...overrides } = o;
   return {
-    id: o.id ?? `${o.type}-${o.priority}`,
-    name: o.name ?? o.type,
-    type: o.type,
-    balance: o.balance,
-    depletionPriority: o.priority,
-    taxTreatment: o.taxTreatment ?? defaultTaxTreatment(o.type),
-    ongoingCost: o.ongoingCost ?? defaultOngoingCost(o.type),
+    id: `${o.type}-${priority}`,
+    name: o.type,
+    depletionPriority: priority,
+    taxTreatment: defaultTaxTreatment(o.type),
+    ongoingCost: defaultOngoingCost(o.type),
     // 0 unless a test is about returns — keeps unrelated assertions focused.
     // Production defaults are covered by defaults/migration tests instead.
-    expectedReturn: o.expectedReturn ?? 0,
-    penaltyFreeMonth: o.penaltyFreeMonth,
-    manualDraw: o.manualDraw,
-    userNote: o.userNote,
+    expectedReturn: 0,
+    ...overrides,
   };
 }
 
@@ -1115,5 +1117,205 @@ describe("penalty-free date (V2.1 item 4)", () => {
     for (const bad of ["", "not-a-month", "2026-13", "20xx-01"]) {
       expect(drawIn("2026-06-15", bad).penalty).toBeCloseTo(PENALTY, 9);
     }
+  });
+});
+
+// =============================================================================
+
+describe("account exclusion (V2.1 item 5)", () => {
+  const scenario = (overrides?: Partial<Account>[]) =>
+    scn({
+      start: "2026-01-01",
+      end: "2026-12-31",
+      accounts: [
+        acct({ type: "checking", balance: 4_000, priority: 1, id: "check" }),
+        acct({ type: "hysa", balance: 6_000, priority: 2, id: "hysa", expectedReturn: 0.04 }),
+        acct({
+          type: "brokerage",
+          balance: 20_000,
+          priority: 3,
+          id: "brok",
+          expectedReturn: 0.06,
+          ...(overrides?.[0] ?? {}),
+        }),
+      ],
+      spend: 3_000,
+    });
+
+  const withExcluded = (id: string, excluded: boolean) => {
+    const base = scenario();
+    return {
+      ...base,
+      accounts: base.accounts.map((a) => (a.id === id ? { ...a, excluded } : a)),
+    };
+  };
+
+  // ---- THE FREEZE TEST — the highest-consequence assertion in the item -----
+
+  it("re-including restores the PRIOR RESULT EXACTLY, not just the runway", () => {
+    // Deep-equal on the whole SimulationResult: every ledger row, every
+    // transaction, every scheduled tax. The freeze is not a snapshot that gets
+    // restored — it is the absence of any mutation, so this holds by
+    // construction. If it ever fails, exclusion has started writing to stored
+    // state and re-inclusion is reconstructing rather than reproducing.
+    const before = simulate(scenario());
+    const excluded = simulate(withExcluded("brok", true));
+    const after = simulate(withExcluded("brok", false));
+
+    expect(after).toEqual(before);
+    // …and the round trip is only meaningful if exclusion actually did
+    // something in between. Without this, a no-op implementation passes.
+    expect(excluded.runway.months).toBeLessThan(before.runway.months);
+  });
+
+  it("does not mutate the scenario it was handed", () => {
+    // The other half of why re-inclusion is exact.
+    const s = withExcluded("brok", true);
+    const snapshot = structuredClone(s);
+    simulate(s);
+    expect(s).toEqual(snapshot);
+  });
+
+  // ---- what exclusion actually does ---------------------------------------
+
+  it("shortens the runway by the excluded balance", () => {
+    const before = simulate(scenario()).runway;
+    const after = simulate(withExcluded("brok", true)).runway;
+    expect(after.months).toBeLessThan(before.months);
+    expect(after.cashZeroDate).not.toBe(before.cashZeroDate);
+  });
+
+  it("FREEZES the balance — an excluded account with a return does not grow", () => {
+    // The interaction the design package flagged: silent growth on money the
+    // user has set aside is a correctness bug waiting to happen.
+    const res = simulate(withExcluded("brok", true));
+    const balances = res.accountTimelines.find((t) => t.accountId === "brok")!.balances;
+    expect(new Set(balances)).toEqual(new Set([20_000])); // flat, every month
+    expect(sumCategory(res, "growth")).toBe(0);
+  });
+
+  it("keeps the excluded series in the timelines, flagged, so the legend can name it", () => {
+    const res = simulate(withExcluded("brok", true));
+    const t = res.accountTimelines.find((tl) => tl.accountId === "brok")!;
+    expect(t).toBeDefined();
+    expect(t.excluded).toBe(true);
+    expect(t.name).toBe("brokerage");
+    // …and the included ones are not flagged.
+    expect(res.accountTimelines.find((tl) => tl.accountId === "check")!.excluded).toBe(false);
+  });
+
+  it("omits the excluded balance from net liquid and total assets", () => {
+    const res = simulate(withExcluded("brok", true));
+    for (const p of res.projection) {
+      expect(p.totalAssets).toBeLessThanOrEqual(10_000 + 1); // 4k + 6k + yield, never +20k
+    }
+  });
+
+  it("omits it from the monthly ledger totals while KEEPING its row", () => {
+    const res = simulate(withExcluded("brok", true));
+    const first = res.months[0];
+    const row = first.accounts.find((a) => a.accountId === "brok")!;
+    expect(row).toBeDefined();
+    expect(row.excluded).toBe(true);
+    // Nothing happened to it: no inflows, no outflows.
+    expect(row.inflows).toEqual({});
+    expect(row.outflows).toEqual({});
+    // …and it is not in the totals.
+    expect(first.totals.opening).toBeCloseTo(10_000, 6);
+  });
+
+  it("never taps an excluded account, however deep the shortfall", () => {
+    const res = simulate(withExcluded("brok", true));
+    const tapped = res.transactions.filter((t) => t.accountId === "brok");
+    expect(tapped).toHaveLength(0);
+    expect(res.scheduledTaxes.filter((t) => t.sourceAccountId === "brok")).toHaveLength(0);
+  });
+
+  it("ignores the flag on a liability — exclusion must never flatter the runway", () => {
+    const base = scn({
+      start: "2026-01-01",
+      end: "2026-06-30",
+      accounts: [
+        acct({ type: "checking", balance: 500, priority: 1 }),
+        acct({
+          type: "credit_line",
+          balance: 50_000,
+          priority: 2,
+          id: "heloc",
+          manualDraw: { date: "2026-01-15", amount: 10_000 },
+        }),
+      ],
+      spend: 1_000,
+    });
+    const flagged = {
+      ...base,
+      accounts: base.accounts.map((a) => (a.id === "heloc" ? { ...a, excluded: true } : a)),
+    };
+    // Identical: the flag does nothing on a liability, so the carrying cost on
+    // the drawn balance is still charged.
+    expect(simulate(flagged)).toEqual(simulate(base));
+    expect(sumCategory(simulate(flagged), "creditInterest")).toBeGreaterThan(0);
+  });
+
+  it("moves the operating account on when the first asset is excluded", () => {
+    const res = simulate(withExcluded("check", true));
+    // Living costs now flow through the HYSA, and checking stays untouched.
+    expect(res.accountTimelines.find((t) => t.accountId === "check")!.balances[0]).toBe(4_000);
+    const hysaOut = res.months[0].accounts.find((a) => a.accountId === "hysa")!;
+    expect(sumAmounts(hysaOut.outflows)).toBeGreaterThan(0);
+  });
+});
+
+describe("no account to operate from (V2.1 item 5 — P1)", () => {
+  const bare = (accounts: Account[]) =>
+    scn({ start: "2026-01-01", end: "2026-06-30", accounts, spend: 1_000 });
+
+  it("does not throw when every account has been DELETED", () => {
+    // Reachable in production today: `deleteAccount` has no floor, so removing
+    // the last account crashed the app on the spot.
+    expect(() => simulate(bare([]))).not.toThrow();
+  });
+
+  it("does not throw when every account is EXCLUDED", () => {
+    expect(() =>
+      simulate(
+        bare([
+          acct({ type: "checking", balance: 3_000, priority: 1, excluded: true }),
+          acct({ type: "savings", balance: 4_000, priority: 2, excluded: true }),
+        ]),
+      ),
+    ).not.toThrow();
+  });
+
+  it("does not throw when only a credit line remains", () => {
+    expect(() =>
+      simulate(bare([acct({ type: "credit_line", balance: 50_000, priority: 1 })])),
+    ).not.toThrow();
+  });
+
+  it("returns a well-formed zero runway rather than a broken result", () => {
+    const res = simulate(bare([]));
+    expect(res.runway.months).toBe(0);
+    expect(res.runway.weeks).toBe(0);
+    expect(res.runway.survivesHorizon).toBe(false);
+    expect(res.runway.cashZeroDate).toBe("2026-01-01");
+    // The shape is intact, so every consumer still renders.
+    expect(res.months).toHaveLength(6);
+    expect(res.projection).toHaveLength(6);
+    expect(res.months[0].totals).toEqual({ opening: 0, inflow: 0, outflow: 0, net: 0, closing: 0 });
+  });
+
+  it("still names every held account, so the legend and ledger are not blank", () => {
+    const res = simulate(
+      bare([
+        acct({ type: "checking", balance: 3_000, priority: 1, id: "c", excluded: true }),
+        acct({ type: "savings", balance: 4_000, priority: 2, id: "s", excluded: true }),
+      ]),
+    );
+    expect(res.accountTimelines.map((t) => t.accountId)).toEqual(["c", "s"]);
+    expect(res.accountTimelines.every((t) => t.excluded)).toBe(true);
+    // Balances stay at what is held — "$3,000 held, not counted".
+    expect(res.accountTimelines[0].balances[0]).toBe(3_000);
+    expect(res.months[0].accounts.map((a) => a.excluded)).toEqual([true, true]);
   });
 });
