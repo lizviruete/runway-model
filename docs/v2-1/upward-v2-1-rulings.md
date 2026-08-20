@@ -509,6 +509,42 @@ Round numbers in shipped seed data are a deliberate exception with its own justi
 
 ---
 
+## dd · "Does colour carry meaning alone?" and "does raising it cost scanning?" are two questions
+
+Item 9's contrast fix surfaced 50 uses of `text-zinc-400` at **2.56:1**, and the audit of them applied ONE test to answer TWO questions. That produced a wrong claim in each direction.
+
+| Question | Domain | Answer, for the de-emphasis cases |
+| --- | --- | --- |
+| Does colour carry the meaning **alone**? | accessibility | **Nowhere.** Not one case. |
+| Does raising it cost **scanning**? | design | **Yes**, in the chart tooltip. |
+
+### What is actually true about the de-emphasis cases
+
+**"Raising these would break the signal" was true of NONE of them.** Every one pairs `text-zinc-400` with a second channel that carries the meaning by itself:
+
+| Site | The second channel |
+| --- | --- |
+| `RunwayChart.tsx:369` | `line-through` |
+| `RunwayChart.tsx:453` | the literal word "excluded" |
+| `LedgerView.tsx:203` | `line-through` |
+| `LedgerView.tsx:206` | `excludedLedgerLine()` states the held balance in words |
+| `LedgerView.tsx:32` | the number already reads `$0` |
+| `RunwayChart.tsx:379` | **the number already reads `$0`** — `tooltipModel` sets `value: formatCurrency(...)`, and the comment above it says the `$0` is shown deliberately rather than dropped |
+
+`RunwayChart.tsx:379` was initially called the one colour-alone case. It is not. There is no colour-alone case in the category.
+
+### Why the tooltip rows stay grey anyway
+
+**Greying `$0` rows costs scannability, not information.** In a panel whose contract is that the rows sum to net liquid ([[x]]), empty rows rendered as loud as funded ones is noise — the reader is scanning for which accounts still hold something.
+
+So the decision stands, but **it is a scanning decision, not a second-channel one**, and it has to be recorded as such. Filed under "colour carries the meaning" it reads as an accessibility constraint, and the next person to touch it — item 11 — will apply the accessibility test, find it passes, and raise it.
+
+### The general form
+
+When a de-emphasis treatment comes up for review, answer both questions and say which one you are answering. The accessibility question governs whether raising it is **permitted**; the design question governs whether raising it is **wanted**. A "leave it" that does not say which question produced it will be re-derived wrongly.
+
+---
+
 ## Also confirmed
 
 - **The build prompt's order wins** over the design package README's BUILD ORDER block, which uses its own numbering. Read the README's order as already-translated.

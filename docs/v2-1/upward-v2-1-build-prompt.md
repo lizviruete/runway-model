@@ -273,6 +273,74 @@ From the design package **appendix**, observations 1 and 2. Both surfaces were o
 
 ---
 
+## 11 · Text-contrast sweep — `text-zinc-400` → `text-zinc-500`
+
+**Added during item 9. Build it AFTER item 10.** Item 10 opens `LedgerView.tsx:32` (the `Amount` component) to strip sign-colouring, and that line is also on this list — doing the sweep first means touching it twice and re-litigating the zero case.
+
+### Why this is a V2.1 item and not a V3 carry-forward
+
+**Item 9 created the inconsistency.** Before it, all 50 uses of `text-zinc-400` were uniformly **2.56:1** — wrong, but coherent. After it, the footer disclaimer is the only `zinc-500` text on the page, so *"the contrast was fixed on the boilerplate and left failing on the account balances"* is now a visible resting state rather than a latent one. A release whose purpose is credibility should not ship that as its resting position.
+
+`text-zinc-500` is `#71717a` at **4.83:1** — passes AA for normal text, measured in Chrome, and identical to the `#6b7280` §7 asked for. See ruling (z) for the sibling argument about the ledger.
+
+### A · Text carrying meaning — RAISE
+
+| Site | What it carries |
+| --- | --- |
+| `AccountList.tsx:108` | accounts header summary — assets total + tap-order hint |
+| `AccountList.tsx:259` | account-type helper line |
+| `TimeAnchor.tsx:36` | "Snapshot from {date}." |
+| `RunwayApp.tsx:354` | baseline help text |
+| `LedgerView.tsx:71` | **the "≈" estimate convention** — the sentence item 3 exists to make visible |
+| `LedgerView.tsx:76` | "Export" label |
+| `LedgerView.tsx:213`, `:226` | "open" / "close" labels on per-account figures |
+| `LedgerView.tsx:259` | transaction labels |
+| `RunwayChart.tsx:409` | "No cash-zero within this 24-month view." — **at 10.5px** |
+| `Toolbar.tsx:75`, `:191` | "Examples" / "Saved" section headings |
+| `Toolbar.tsx:221` | saved-pill date + notes |
+| `Levers.tsx:189` | lever event hint |
+| `ExpenseList.tsx:195` | expense row hint |
+| `AssumptionsPanel.tsx:129` | "(optional)" |
+| `ui.tsx:46`, `:92` | **shared hint slots** — these fan out across every card |
+
+### C · Deliberate de-emphasis — LEAVE, per ruling (dd)
+
+`RunwayChart.tsx:369`, `:379`, `:453`; `LedgerView.tsx:203`, `:206`, `:32`.
+
+**Read ruling (dd) before touching these.** None of them is colour-alone — every one pairs the grey with a second channel, so the accessibility test *permits* raising all six. They stay grey for a **scanning** reason, not an accessibility one: empty rows rendered as loud as funded ones is noise in a panel whose contract is that the rows reconcile.
+
+### B · Decoration — LEAVE, no decision needed
+
+`$` prefixes (`FlowModal:92`, `AccountList:53`, `ExpenseList:116`/`377`, `ui:83`), `%` suffixes (`AccountList:334`, `Levers:340`, `AssumptionsPanel:117`), every `placeholder:` and `focus:border-` variant, the `▾`/`▸` caret (`LedgerView:141`), and `LedgerView:172` — which is `aria-hidden`, decorative by declaration.
+
+### Not in scope for item 11
+
+**The interactive controls — see item 12.** They are a separate decision and not a token swap.
+
+---
+
+## 12 · Control legibility — a decision, not a sweep
+
+**Do not absorb this into item 11.** It needs deciding on its own terms, and folding it into a token swap is how it gets decided by accident.
+
+These controls render at `text-zinc-400` — **2.56:1** — in their resting state, and rely on `hover:` to become legible:
+
+| Site | Control |
+| --- | --- |
+| `Toolbar.tsx:180` | **"See an Example"** — a primary entry point |
+| `Toolbar.tsx:176` | "Start fresh" |
+| `Toolbar.tsx:128`, `:161` | Cancel (save / save-baseline) |
+| `Toolbar.tsx:216` | delete a saved scenario |
+| `AccountList.tsx:211`, `:239` | remove / collapse an account |
+| `ExpenseList.tsx:171` | remove an expense row |
+| `Levers.tsx:197` | remove a lever |
+
+**The framing that makes this a decision rather than a preference:** hover does nothing for keyboard or touch. So this is not a control that is *dim until you interact with it* — it is **a control that is illegible to some users in every state they can reach**. "See an Example" is a primary way into the product, sitting below the large-text floor for anyone not using a mouse.
+
+Why it is not a token swap: raising a control's resting colour changes what *interactive* looks like across the interface. The current design uses dimness as the affordance and hover as the reveal; replacing the resting value without replacing that system leaves controls that no longer read as controls. Decide the system, then apply it.
+
+---
+
 ## Out of scope — do not build
 
 - **Design package §5b** — the third "Drawdown by account" chart view, the `--chart-income` token, and the third toggle segment. Carried forward to V3, where it pairs with the recovery module. The §5b *toggle rename* is in scope (item 6); the *third view* is not.
