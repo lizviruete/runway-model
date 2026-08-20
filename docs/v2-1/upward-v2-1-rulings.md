@@ -108,12 +108,12 @@ Add a version field to `Scenario`; missing or unknown means v1. **Write one test
 
 ---
 
-## h · Feedback link — merge into the existing footer, hide under `?chrome=min`
+## h · Footer — merge into the existing one, hide under `?chrome=min`
 
-**Destination URL: pending from Liz** (see the note at the end). Build the rest against a placeholder constant so this does not block.
+> **Partly superseded by ruling (r):** the feedback link is dropped. The footer's *placement* rulings below still stand and now govern the privacy line alone. ~~Destination URL: pending from Liz.~~ There is no URL to supply.
 
-- **Merge, do not stack.** One footer. The existing "Sample data is fictional. Not financial advice." disclaimer, the feedback link, and the privacy line live together in the current footer element. Take the spec's left alignment and 40px spacing.
-- **Yes, it hides under `?chrome=min`** with the rest of `data-chrome`. That mode is the embedded view used by the gated portfolio page, and a feedback link inside an embed is wrong — it belongs to the full app.
+- **Merge, do not stack.** One footer. The existing "Sample data is fictional. Not financial advice." disclaimer and the privacy line live together in the current footer element. Take the spec's left alignment and 40px spacing.
+- **Yes, it hides under `?chrome=min`** with the rest of `data-chrome`. That mode is the embedded view used by the gated portfolio page, and the line belongs to the full app.
 
 ---
 
@@ -221,6 +221,55 @@ The rule is about the label being redundant, **not** about the row being seeded.
 
 ---
 
+## r · The feedback link is dropped; the privacy line is kept
+
+Item 9 as written pairs a quiet feedback link with a privacy line. **Ruling: ship the privacy line alone.** No link, no external form, no new-tab behaviour, and no destination URL to source.
+
+Chris asked for *"a section in the app for feedback and support"*. That is the V3 instrument, designed alongside the analytics that give it something to act on — not a placeholder link pointing at a Google Form. Shipping the stopgap would answer the request in form while missing it in substance, and it would have to be removed again to build the real thing.
+
+**The privacy line stays, and stands on its own.** §7 justified it as the antidote to the suspicion a feedback link invites, but that gets the causation backwards: the *product* raises "where does this go?" the moment it asks for account balances. The link was only what prompted saying it out loud. Removing the link does not remove the question.
+
+So item 9 becomes **"Footer privacy line"**: one line, §7's placement and geometry, merged into the existing footer per ruling (h), hidden under `?chrome=min`.
+
+This also closes the open question at the end of this file — there is no feedback URL to supply.
+
+---
+
+## s · Copy that ships is built as a string in the pure layer, never assembled in JSX
+
+Interleaving text and `{expressions}` across JSX lines silently drops interior spaces. Nothing below the browser can see it: the source reads correctly, the compiler is satisfied, and the suite stays green. It shipped as `this $5,000isn't part of your runway` in item 5 and was caught only by driving the app.
+
+**Ruling: any string a user reads is produced by a pure function and asserted there.** The component renders the result; it does not assemble it.
+
+This is the rule, not a habit. It already applies to §4's two exclusion strings, item 3's `returnFaceClause` and `penaltyStatusLine`, item 2's `expenseMeta` and `expensesHeadline`, and item 1's `accountDisplayName`.
+
+**It matters most in item 6**, whose tooltip assembles per-series rows, an event line and several edge-state captions — the densest copy surface in the release, and the one where a dropped space would be least visible in review.
+
+A useful shape for these tests: assert the exact string, and separately assert `not.toMatch(/\s{2}/)` across a range of inputs. The second catches the inverse mistake.
+
+---
+
+## t · Test builders spread overrides; they never enumerate fields
+
+Three variants of one hazard have now shipped past the compiler in this release. **Opposite mechanisms, identical symptom: a test that silently stops testing what it claims.**
+
+| Where | Mechanism | What it hid |
+| --- | --- | --- |
+| `applyTypeDefaults` spreading over `Account` | spread kept a field it should have reset | a **stale** field (`expectedReturn` surviving a type change) |
+| `chartWindow` fixture spreading over `Levers` | spread accepted a key the type no longer had | a **removed** field (`targetMonthlySpend`, a silent no-op) |
+| `acct()` builder enumerating `Account` fields | enumeration ignored a key it did not list | a **new** field (`excluded` never reaching the engine) |
+
+TypeScript catches none of them: excess-property checks do not fire through a spread, and `Partial<Account>` accepts a key whether or not the body reads it.
+
+**Ruling, two parts:**
+
+1. **Test builders spread their overrides last** — `const { priority, ...overrides } = o; return { ...defaults, ...overrides }` — so a field added to the type propagates for free.
+2. **Production code that spreads a typed object keeps its type-derived fields in ONE object** (`typeDerived()`), and a test enumerates that object's keys, because the compiler cannot.
+
+Neither is optional going into items 6–10, all of which add fields to types the fixtures spread over.
+
+---
+
 ## Also confirmed
 
 - **The build prompt's order wins** over the design package README's BUILD ORDER block, which uses its own numbering. Read the README's order as already-translated.
@@ -229,8 +278,6 @@ The rule is about the label being redundant, **not** about the row being seeded.
 
 ---
 
-## Still open — needs Liz
+## Closed — nothing open
 
-**The feedback destination URL (item 9 only).** This does **not** block item 1; item 9 is eighth in the build order. Build against a placeholder and swap it in before that PR.
-
-Recommendation: a short Google Form rather than a `mailto:`. A form gives structured responses and avoids publishing a scrapable address on a page linked from the portfolio.
+~~**The feedback destination URL (item 9 only).**~~ **Closed by ruling (r):** the feedback link is dropped, so there is no URL to supply. Item 9 ships the privacy line alone.

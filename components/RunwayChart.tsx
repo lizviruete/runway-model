@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { assetTimelines, chartMax, type ChartMode } from "@/lib/chart";
+import { assetTimelines, chartMax, legendTimelines, type ChartMode } from "@/lib/chart";
 import { daysBetween } from "@/lib/engine/dates";
 import type { AccountTimeline, ProjectionPoint } from "@/lib/engine/types";
 import { formatCurrency, formatMonthShort } from "@/lib/format";
@@ -63,7 +63,10 @@ export function RunwayChart({
   const PLOT_H = H - PAD.top - PAD.bottom;
 
   const n = current.length;
+  // `assets` DRAWS (excluded filtered out, before chartMax scales the axis);
+  // `legendSeries` NAMES (excluded kept, in tap-order position).
   const assets = assetTimelines(timelines);
+  const legendSeries = legendTimelines(timelines);
   const x = (i: number) => PAD.left + (n <= 1 ? 0 : (i / (n - 1)) * PLOT_W);
 
   const maxY = chartMax(current, baseline, assets, !!showBaseline);
@@ -161,10 +164,32 @@ export function RunwayChart({
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
         {byAccount ? (
           <>
-            {assets.map((t) => (
-              <span key={t.accountId} className="flex items-center gap-1.5 text-xs text-zinc-600">
-                <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: TYPE_COLORS[t.type] }} />
-                {t.name}
+            {/* The LEGEND lists every asset series in tap-order position,
+                including excluded ones — keeping them listed is what tells a
+                returning user why a band is missing. They draw no band: the
+                stack is built from `assets`, which filters them out. */}
+            {legendSeries.map((t) => (
+              <span
+                key={t.accountId}
+                data-testid={t.excluded ? "legend-excluded" : "legend-series"}
+                className="flex items-center gap-1.5 text-xs text-zinc-600"
+              >
+                {t.excluded ? (
+                  <span className="inline-block h-2.5 w-2.5 rounded-sm border border-dashed border-zinc-400" />
+                ) : (
+                  <span
+                    className="inline-block h-2.5 w-2.5 rounded-sm"
+                    style={{ background: TYPE_COLORS[t.type] }}
+                  />
+                )}
+                {t.excluded ? (
+                  <>
+                    <span className="line-through">{t.name}</span>
+                    <span className="text-zinc-400">excluded</span>
+                  </>
+                ) : (
+                  t.name
+                )}
               </span>
             ))}
             <span className="flex items-center gap-1.5 text-xs text-zinc-600">

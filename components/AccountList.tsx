@@ -4,6 +4,13 @@ import { useState } from "react";
 import { penaltyFaceClause, returnFaceClause } from "@/lib/accountAssumptions";
 import { accountDisplayNames } from "@/lib/engine/accountName";
 import {
+  accountsHeaderSummary,
+  canExclude,
+  excludedCardLine,
+  isExcluded,
+  tapPositions,
+} from "@/lib/engine/exclusion";
+import {
   ACCOUNT_TYPE_META,
   ACCOUNT_TYPE_ORDER,
   isCreditType,
@@ -82,22 +89,24 @@ export function AccountList({ scenario, onChange }: Props) {
   const deleteAccount = (id: string) =>
     setAccounts(renumber(accounts.filter((a) => a.id !== id)));
 
-  const totalAssets = accounts
-    .filter((a) => !isCreditType(a.type))
-    .reduce((s, a) => s + a.balance, 0);
-
   // Same accessor the engine uses, so a blank name shows the card the very
   // label the legend and the ledger show for it — including the trailing index
   // when two unnamed accounts share a type.
   const displayNames = accountDisplayNames(accounts);
+  // Same module the engine, chart and ledger read — no component derives its
+  // own answer to "is this excluded" or "what number does it carry".
+  const positions = tapPositions(accounts);
 
   return (
     <section data-testid="accounts">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex flex-wrap items-baseline gap-x-3">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Accounts</h2>
-          <span className="text-xs text-zinc-400">
-            {formatCurrency(totalAssets)} in assets · drag to set tap order
+          {/* A persistent count is the safety net for a returning user: the
+              header always says how much is held out, so nobody has to
+              remember what they did five minutes ago. */}
+          <span data-testid="accounts-summary" className="text-xs text-zinc-400">
+            {accountsHeaderSummary(accounts, formatCurrency)} · drag to set tap order
           </span>
         </div>
         <button
@@ -115,29 +124,55 @@ export function AccountList({ scenario, onChange }: Props) {
           const meta = ACCOUNT_TYPE_META[account.type];
           const credit = isCreditType(account.type);
           const isOpen = expanded.has(account.id);
+          const excluded = isExcluded(account);
+          const tapPosition = positions.get(account.id) ?? null;
           return (
             <div
               key={account.id}
-              draggable
-              onDragStart={() => setDragIndex(i)}
+              aria-describedby={excluded ? `excluded-${account.id}` : undefined}
+              // Excluded cards are not draggable: they have no place in the
+              // sequence, so there is nothing to reorder them within.
+              draggable={!excluded}
+              onDragStart={() => (excluded ? undefined : setDragIndex(i))}
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => {
-                if (dragIndex !== null) reorder(dragIndex, i);
+                // …and the drop indicator skips them, so a drag cannot land on
+                // a position that is not in the sequence.
+                if (dragIndex !== null && !excluded) reorder(dragIndex, i);
                 setDragIndex(null);
               }}
               onDragEnd={() => setDragIndex(null)}
-              className={`rounded-lg border bg-white p-2.5 ${
-                dragIndex === i ? "border-zinc-400 opacity-60" : "border-zinc-200"
+              className={`rounded-lg border p-2.5 ${
+                dragIndex === i
+                  ? "border-zinc-400 opacity-60 bg-white"
+                  : excluded
+                    ? // Dashed border + hollow chip + the word "excluded": three
+                      // non-colour signals. Inputs stay at FULL opacity — this is
+                      // not disabled data, it is real money held aside, and the
+                      // user still needs to read and edit it.
+                      "border-dashed border-zinc-400 bg-zinc-50/40"
+                    : "border-zinc-200 bg-white"
               }`}
             >
-              {/* line 1: priority chip · name · balance · delete */}
+              {/* line 1: priority chip · name · balance · exclude · delete */}
               <div className="flex items-center gap-2">
                 <span
-                  className="flex h-6 w-6 shrink-0 cursor-grab items-center justify-center rounded text-[10px] font-semibold text-white"
-                  style={{ background: TYPE_COLORS[account.type] }}
-                  title={`Priority ${i + 1} — drag to reorder`}
+                  data-testid="account-chip"
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded text-[10px] font-semibold ${
+                    excluded
+                      ? "cursor-default border border-dashed border-zinc-400 text-zinc-500"
+                      : "cursor-grab text-white"
+                  }`}
+                  style={excluded ? undefined : { background: TYPE_COLORS[account.type] }}
+                  title={
+                    excluded
+                      ? "Not in the drawdown sequence — no tap-order number"
+                      : `Priority ${tapPosition ?? i + 1} — drag to reorder`
+                  }
                 >
-                  {i + 1}
+                  {/* The number IS the account's place in the drawdown sequence,
+                      so something not in the sequence cannot have one. */}
+                  {excluded ? "—" : tapPosition}
                 </span>
                 <input
                   value={account.name}
@@ -149,6 +184,28 @@ export function AccountList({ scenario, onChange }: Props) {
                   value={account.balance}
                   onChange={(v) => onChange(updateAccount(scenario, account.id, { balance: v }))}
                 />
+                {/* On the FACE, left of the ×. A state that changes the
+                    headline number must not be reachable only by disclosure. */}
+                {canExclude(account) ? (
+                  <button
+                    data-testid="account-exclude"
+                    onClick={() =>
+                      onChange(
+                        updateAccount(scenario, account.id, {
+                          excluded: excluded ? undefined : true,
+                        }),
+                      )
+                    }
+                    aria-pressed={excluded}
+                    aria-label={`${excluded ? "Include" : "Exclude"} ${displayNames.get(account.id) ?? meta.label} ${excluded ? "in" : "from"} runway`}
+                    title="Hold this account out of the runway. Nothing is deleted."
+                    className={`shrink-0 rounded px-1 py-1 text-[12.5px] underline underline-offset-2 ${
+                      excluded ? "text-zinc-900" : "text-zinc-500 hover:text-zinc-900"
+                    }`}
+                  >
+                    {excluded ? "Include" : "Exclude"}
+                  </button>
+                ) : null}
                 <button
                   onClick={() => deleteAccount(account.id)}
                   className="shrink-0 rounded px-1.5 py-1 text-xs text-zinc-400 hover:bg-red-50 hover:text-red-500"
@@ -186,12 +243,25 @@ export function AccountList({ scenario, onChange }: Props) {
                 </button>
               </div>
 
-              {/* helper line + computed ongoing cost */}
-              <p className="mt-1 pl-8 text-[11px] text-zinc-400">
-                {credit ? "Available credit · " : ""}
-                {meta.helper}
-                <ConsequenceNote account={account} />
-              </p>
+              {/* helper line + computed ongoing cost — replaced, while
+                  excluded, by a single grey line stating the consequence. The
+                  card carries it via aria-describedby so the state is
+                  ANNOUNCED when focus enters, not only seen. */}
+              {excluded ? (
+                <p
+                  id={`excluded-${account.id}`}
+                  data-testid="account-excluded-note"
+                  className="mt-1 pl-8 text-[11px] text-zinc-500"
+                >
+                  {excludedCardLine(account, formatCurrency)}
+                </p>
+              ) : (
+                <p className="mt-1 pl-8 text-[11px] text-zinc-400">
+                  {credit ? "Available credit · " : ""}
+                  {meta.helper}
+                  <ConsequenceNote account={account} />
+                </p>
+              )}
 
               {isOpen ? <Implications scenario={scenario} account={account} onChange={onChange} /> : null}
             </div>

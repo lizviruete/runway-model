@@ -25,7 +25,7 @@ A completed design-to-dev package accompanies this build:
 | 6 · Graph by account, as columns | **§5** Graph by account, as columns |
 | 7 · Cash flow, positive or negative | **§6** Cash flow, positive or negative |
 | 8 · De-personalized example scenario | *none — content change* |
-| 9 · Feedback link | **§7** Feedback link placement |
+| 9 · Footer privacy line | **§7** Feedback link placement — *placement and geometry only; the link itself is dropped, see ruling (r)* |
 | 10 · Calm color pass | **Appendix**, observations 1 and 2 |
 
 **Design package §5b (a third "Drawdown by account" chart view) is OUT OF SCOPE.** It is carried forward to V3. Do not build it. Do not add the `--chart-income` token. See Out of scope.
@@ -219,15 +219,17 @@ Remove the HELOC, the rental / major-asset-sale lever, the brokerage, and the Ro
 
 ---
 
-## 9 · Feedback link
+## 9 · Footer privacy line
 
-→ **Design package §7.**
+→ **Design package §7**, for the placement and geometry only.
 
-A single quiet link in a **page footer below the ledger card**, 40px down, 13px, underlined on hover only. Last thing on the page, because feedback comes after using the model. Nothing in the header — that is where scenario controls live and a feedback link there competes with work. Opens in a new tab so an in-progress scenario is never lost.
+> **Rewritten — see ruling (r).** The feedback link is dropped: no link, no external form, no new-tab behaviour. What ships is the privacy line alone.
 
-**Paired with the privacy line** from §7: *"Your numbers stay in this browser. Nothing is uploaded."* A feedback link is the one place a no-backend product invites the suspicion that something is being sent. Say it plainly, once.
+One line in a **page footer below the ledger card**: *"Your numbers stay in this browser. Nothing is uploaded."* Take §7's treatment — left-aligned to the content column, 40px below the ledger, 13px `#6b7280`. Merged into the existing footer, not stacked beside it (ruling h), and hidden under `?chrome=min` with the rest of `data-chrome`.
 
-No modal, no backend, no data capture, no event tracking. This is a **stopgap**; the real in-app feedback and support surface is a later release designed alongside analytics.
+The line stands on its own. §7 paired it with the feedback link on the reasoning that a link is where a no-backend product invites the suspicion something is being sent — but the *product* raises that question by asking for account balances. The link was only what prompted saying it out loud.
+
+No modal, no backend, no data capture, no event tracking. The real in-app feedback and support surface is V3, designed alongside the analytics rather than bolted on as a placeholder link.
 
 ---
 
