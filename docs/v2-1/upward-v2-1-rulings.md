@@ -235,6 +235,41 @@ This also closes the open question at the end of this file — there is no feedb
 
 ---
 
+## s · Copy that ships is built as a string in the pure layer, never assembled in JSX
+
+Interleaving text and `{expressions}` across JSX lines silently drops interior spaces. Nothing below the browser can see it: the source reads correctly, the compiler is satisfied, and the suite stays green. It shipped as `this $5,000isn't part of your runway` in item 5 and was caught only by driving the app.
+
+**Ruling: any string a user reads is produced by a pure function and asserted there.** The component renders the result; it does not assemble it.
+
+This is the rule, not a habit. It already applies to §4's two exclusion strings, item 3's `returnFaceClause` and `penaltyStatusLine`, item 2's `expenseMeta` and `expensesHeadline`, and item 1's `accountDisplayName`.
+
+**It matters most in item 6**, whose tooltip assembles per-series rows, an event line and several edge-state captions — the densest copy surface in the release, and the one where a dropped space would be least visible in review.
+
+A useful shape for these tests: assert the exact string, and separately assert `not.toMatch(/\s{2}/)` across a range of inputs. The second catches the inverse mistake.
+
+---
+
+## t · Test builders spread overrides; they never enumerate fields
+
+Three variants of one hazard have now shipped past the compiler in this release. **Opposite mechanisms, identical symptom: a test that silently stops testing what it claims.**
+
+| Where | Mechanism | What it hid |
+| --- | --- | --- |
+| `applyTypeDefaults` spreading over `Account` | spread kept a field it should have reset | a **stale** field (`expectedReturn` surviving a type change) |
+| `chartWindow` fixture spreading over `Levers` | spread accepted a key the type no longer had | a **removed** field (`targetMonthlySpend`, a silent no-op) |
+| `acct()` builder enumerating `Account` fields | enumeration ignored a key it did not list | a **new** field (`excluded` never reaching the engine) |
+
+TypeScript catches none of them: excess-property checks do not fire through a spread, and `Partial<Account>` accepts a key whether or not the body reads it.
+
+**Ruling, two parts:**
+
+1. **Test builders spread their overrides last** — `const { priority, ...overrides } = o; return { ...defaults, ...overrides }` — so a field added to the type propagates for free.
+2. **Production code that spreads a typed object keeps its type-derived fields in ONE object** (`typeDerived()`), and a test enumerates that object's keys, because the compiler cannot.
+
+Neither is optional going into items 6–10, all of which add fields to types the fixtures spread over.
+
+---
+
 ## Also confirmed
 
 - **The build prompt's order wins** over the design package README's BUILD ORDER block, which uses its own numbering. Read the README's order as already-translated.
