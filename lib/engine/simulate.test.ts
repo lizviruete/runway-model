@@ -519,44 +519,64 @@ describe("sample scenario smoke", () => {
   it("produces the full horizon for all accounts", () => {
     expect(horizon).toBe(60); // 2026-07 .. 2031-06 (5-year horizon)
     expect(res.projection).toHaveLength(horizon);
-    expect(res.accountTimelines).toHaveLength(7);
+    expect(res.accountTimelines).toHaveLength(3); // item 8: three generic accounts
     for (const t of res.accountTimelines) expect(t.balances).toHaveLength(horizon);
     expect(res.transactions.length).toBeGreaterThan(0);
   });
 
   it("tells a tight, believable ~9-month depletion story", () => {
+    // Item 8 de-personalized the accounts and KEPT the crunch deliberately.
     expect(res.runway.survivesHorizon).toBe(false);
     expect(res.runway.cashZeroDate).not.toBeNull();
     expect(res.runway.months).toBeGreaterThan(8);
     expect(res.runway.months).toBeLessThan(10);
-    expect(res.baselineMonthlySpend).toBe(6_500);
+    expect(res.baselineMonthlySpend).toBe(5_000);
   });
 
   it("cascades the waterfall in priority order before cash-zero", () => {
     // Each lower-priority account drains no earlier than the one above it.
-    const order = [
-      "Everyday Checking",
-      "Savings",
-      "High-Yield Savings",
-      "Brokerage",
-      "Roth IRA",
-      "Pre-tax IRA",
-    ].map(drainedAt);
+    const order = ["Everyday Checking", "High-Yield Savings", "401(k)"].map(drainedAt);
     for (const idx of order) expect(idx).toBeGreaterThanOrEqual(0); // all drained
     for (let i = 1; i < order.length; i++) {
       expect(order[i]).toBeGreaterThanOrEqual(order[i - 1]);
     }
   });
 
-  it("reaches retirement and triggers BOTH brokerage and pre-tax tax events", () => {
-    const brokerage = res.scheduledTaxes.filter((t) => t.sourceAccountName === "Brokerage");
-    const pretax = res.scheduledTaxes.filter((t) => t.sourceAccountName === "Pre-tax IRA");
-    expect(brokerage.length).toBeGreaterThan(0);
+  it("reaches the 401(k) and triggers tax on BOTH sides of the penalty-free date", () => {
+    // The brokerage half of this test moved to its own fixture below. Item 8
+    // took the brokerage out of the demo, and a cap-gains assertion that only
+    // holds while the example ships a brokerage is asserting the wrong thing.
+    const pretax = res.scheduledTaxes.filter((t) => t.sourceAccountName === "401(k)");
     expect(pretax.length).toBeGreaterThan(0);
-    // Brokerage: capital gains only, no early penalty.
+    // Ordinary income tax on every withdrawal…
+    expect(pretax.every((t) => t.tax > 0)).toBe(true);
+    // …and the 10% early penalty only on the ones taken before the date.
+    expect(pretax.some((t) => t.penalty > 0)).toBe(true);
+    expect(pretax.some((t) => t.penalty === 0)).toBe(true);
+  });
+
+  it("triggers brokerage capital gains with no early penalty", () => {
+    // Local fixture, not the example scenario — the behaviour is the engine's
+    // and outlives whatever the demo ships.
+    const res = simulate(
+      scn({
+        // The priority-1 account pays expenses directly; tax is scheduled on
+        // TAPS from the accounts below it. A lone brokerage is the operating
+        // account and never gets tapped, so it needs cash above it.
+        accounts: [
+          acct({ type: "checking", balance: 1_000, priority: 1, id: "check" }),
+          acct({ type: "brokerage", balance: 20_000, priority: 2, id: "brok" }),
+        ],
+        spend: 5_000,
+        // The horizon has to reach the following April 15 — a cap-gains
+        // liability due beyond the window is never scheduled.
+        end: "2027-12-31",
+      }),
+    );
+    const brokerage = res.scheduledTaxes.filter((t) => t.sourceAccountId === "brok");
+    expect(brokerage.length).toBeGreaterThan(0);
+    expect(brokerage.every((t) => t.tax > 0)).toBe(true);
     expect(brokerage.every((t) => t.penalty === 0)).toBe(true);
-    // Pre-tax: ordinary income tax AND a 10% early-withdrawal penalty.
-    expect(pretax.some((t) => t.tax > 0 && t.penalty > 0)).toBe(true);
   });
 });
 

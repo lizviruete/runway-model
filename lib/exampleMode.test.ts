@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { chooseInitSource, isExampleSource, nextExampleMode, presetIdFromSearch } from "./exampleMode";
 import { createSampleScenario } from "./sample";
+import { simulate } from "./engine/simulate";
 import { shareableUrl } from "./share";
 
 // A real `?s=...` search string for the sample scenario.
@@ -103,5 +104,30 @@ describe("nextExampleMode — enter / stay / exit transitions", () => {
   it("exits when locking the user's own baseline or loading a saved scenario", () => {
     expect(nextExampleMode(true, "saveAsBaseline")).toBe(false);
     expect(nextExampleMode(true, "loadSaved")).toBe(false);
+  });
+});
+
+describe("?example=1 loads the de-personalized example (item 8)", () => {
+  // `chooseInitSource` picking "example" and the example actually being loadable
+  // are two different facts. This ties them together: the source resolves, and
+  // what it resolves TO is the seed item 8 rebuilt.
+  it("resolves to the example source and hands over a loadable scenario", () => {
+    expect(chooseInitSource("?example=1", false)).toBe("example");
+    const s = createSampleScenario("2026-07-01");
+    expect(s.accounts).toHaveLength(3);
+    const r = simulate(s).runway;
+    expect(r.months).toBeGreaterThan(8);
+    expect(r.months).toBeLessThan(10);
+  });
+
+  it("stays out of example mode as soon as the visitor edits anything", () => {
+    // Previewing is EPHEMERAL. The mode is derived per mount and never written
+    // down, so there is no persisted flag that could survive into a later visit
+    // and quietly show someone the demo instead of their own numbers.
+    const source = chooseInitSource("?example=1", true);
+    expect(source).toBe("example");
+    expect(nextExampleMode(isExampleSource(source), "manualEdit")).toBe(false);
+    // …and a plain return visit with saved state never re-enters it.
+    expect(isExampleSource(chooseInitSource("", true))).toBe(false);
   });
 });

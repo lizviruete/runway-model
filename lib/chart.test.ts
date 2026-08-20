@@ -49,7 +49,17 @@ describe("chart geometry", () => {
   });
 
   it("excludes credit lines from the asset stack", () => {
-    const tls = simulate(createSampleScenario()).accountTimelines;
+    // Built locally rather than read off the example scenario. Item 8 removed
+    // the HELOC from the demo, and this test is about `assetTimelines`, not
+    // about what the demo happens to ship — a fixture that can be edited out
+    // from under an assertion was never the right fixture.
+    const tls = simulate(
+      scenario(
+        [acct("checking", 5_000, 1), acct("credit_line", 2_000, 2)],
+        "2026-07-01",
+        "2026-12-31",
+      ),
+    ).accountTimelines;
     const assets = assetTimelines(tls);
     expect(tls.some((t) => t.type === "credit_line")).toBe(true);
     expect(assets.some((t) => t.type === "credit_line")).toBe(false);
