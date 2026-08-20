@@ -270,6 +270,57 @@ Neither is optional going into items 6–10, all of which add fields to types th
 
 ---
 
+## u · Alternating-lightness palettes guarantee separation only for CONSECUTIVE positions
+
+§5's chart palette alternates dark and light by tap position, so that adjacent bands differ in luminance as well as hue. Validated on **adjacent pairs** it passes comfortably — worst ΔE 31.8 under deuteranopia.
+
+**That validation is only true while adjacency means "consecutive tap positions".** Two shipped features break that:
+
+- **Exclusion (item 5)** — exclude tap 3 and taps 2 and 4 become adjacent bands.
+- **Manual draws (V2)** — a dated tap can empty account 5 while 3 and 4 still hold money.
+
+Run `--pairs all` instead of adjacent and §5's palette fails: taps 2 and 4 (`#7dd3fc` sky, `#f0abfc` fuchsia) are **ΔE 1.4** for a deuteranope — the same colour.
+
+**Ruling: validate `--pairs all`, never adjacent, whenever the series set can be filtered, reordered, or drained out of order.** Adjacent-pair validation is only sound for a stack whose members can never be removed from the middle.
+
+### What was attempted, and the honest result
+
+Re-deriving the four light values with the darks fixed reaches worst all-pairs CVD **ΔE 4.8** — still under the ≥8 target. Given a free hand over all eight, the ceiling is CVD 11.9 and **normal-vision ΔE 12.3, under the hard floor of 15**.
+
+| Series | worst all-pairs CVD | worst all-pairs normal |
+| --- | --- | --- |
+| 4 | 28.9 | 29.5 ✓ |
+| 5 | 14.3 | 18.7 ✓ |
+| 6 | 13.5 | 13.8 ✗ |
+| 8 | 11.9 | 12.3 ✗ |
+
+**Eight categorical series cannot pairwise separate. All-pairs separation tops out at five.** This is a property of the colour space, not of §5's choices, so churning the palette to get closer buys nothing.
+
+**Therefore the palette is kept exactly as §5 specifies**, and robustness comes from making colour *secondary*:
+
+- the **tap number in the legend entry**, so position and number are the primary channel — a collision degrades to "harder to scan", not "cannot tell which band is which";
+- the **2px surface gap** between stacked segments, which separates neighbours regardless of hue;
+- §5's **1px stroke** on light fills, which stops a thin band vanishing against white (a different problem from the gap — keep both);
+- the legend and tooltip **naming every series**, which §5 already requires.
+
+### The part worth carrying forward
+
+**This was only reachable because item 5 shipped.** The design package validated its palette against the product as designed; a later item in the same release invalidated that validation by letting a series be removed from the middle of the stack.
+
+A design package's validation is a snapshot of the product it was drawn against. **Re-run it rather than trusting it** — especially the computable checks, which are cheap to re-run and impossible to eyeball.
+
+---
+
+## v · `formatRunway` stays as-is; all-excluded reads "0.0 weeks"
+
+§4 says the all-excluded state reads "runway reads 0.0 months". It renders **"0.0 weeks"**, because `formatRunway` switches to weeks below one month — the formatter's own rule, applied consistently to every sub-month runway.
+
+**Ruling: no change.** §4 wrote "months" as an illustrative string, not as a considered decision about the sub-month branch, and both phrasings say the same thing. Special-casing zero creates an exception every future reader has to discover.
+
+Logged for later: if zero deserves distinct copy — "None", or the figure suppressed entirely — that is a **copy decision about the zero state**, not a formatter exception, and should be taken as one.
+
+---
+
 ## Also confirmed
 
 - **The build prompt's order wins** over the design package README's BUILD ORDER block, which uses its own numbering. Read the README's order as already-translated.
