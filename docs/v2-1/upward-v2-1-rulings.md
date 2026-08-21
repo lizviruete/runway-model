@@ -613,6 +613,33 @@ So this is a **deliberate hold, not a closed question.** It goes on the item 11 
 
 ---
 
+## gg · An assertion that returns false is a STOP, not a footnote
+
+During V2.1's step 6, a live check reported `reEncodedToV3: false` and the report **continued past it** — the surrounding results were written up as passing with the false left standing, unexplained.
+
+**If a check fails, the failure is the finding until it is explained.** Either the code is wrong or the check is wrong, and **which one it is has to be established before anything else in the report is trustworthy.** A single unexplained false undermines every other line in the same report, because the reader cannot tell whether the rest was scored by the same instrument.
+
+Here the check was wrong: the `?s=` payload is base64, so `decodeURIComponent` never saw the JSON it was pattern-matching against. Decoding with `atob` first confirmed `version: 3`, the v1 `housing` / `targetMonthlySpend` keys gone, the step change intact, and the HYSA's 4% moved from `ongoingCost` to `expectedReturn`. **That was cheap to establish.** The cost was not the diagnosis — it was that a whole report shipped with an unexplained false in it.
+
+### What makes this distinct from (m), (w), and (cc)
+
+The other three are all cases where **nothing looked wrong**: the green was sincere and the defect was in what the check could not see.
+
+| Ruling | What is wrong | Was the signal there? | What catches it |
+| --- | --- | --- | --- |
+| [[m]] | The tests do not test the code | No — green is sincere | Mutation testing |
+| [[w]] | The code is not reachable, or the check never reached it | No — green is sincere | Driving the live app; enumerating disclosure states |
+| [[cc]] | The fixture is unrepresentative | No — green is sincere | Asking whether the inputs are plausible |
+| **gg** | **A real failure was reported and passed over** | **YES — the check said false** | **Nothing automatic. Reading your own output.** |
+
+**This is the only one of the four that no suite discipline catches, because nothing is broken in the code.** It is a **reporting failure, not a testing one.** The instrument worked; the report did not.
+
+### The correction is the behaviour to keep
+
+The false was caught one run later, self-reported, and diagnosed to the check rather than the code. **That is the right outcome and it is the standard** — not the discipline that failed, but the one that recovered. What the ruling asks for is to move that recovery earlier: stop at the false, resolve it, then continue. A finding you surface yourself costs one paragraph; the same finding surfaced by a reader costs the credibility of the report it was buried in.
+
+---
+
 ## Also confirmed
 
 - **The build prompt's order wins** over the design package README's BUILD ORDER block, which uses its own numbering. Read the README's order as already-translated.
