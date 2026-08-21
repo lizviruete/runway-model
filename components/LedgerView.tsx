@@ -171,16 +171,20 @@ export function LedgerView({
                         ) : null}
                       </td>
                       <td className="px-3 py-2 text-right"><Amount value={m.totals.opening} /></td>
-                      <td className="px-3 py-2 text-right text-emerald-600 tabular-nums">
+                      {/* IN is neutral too. A KIND-ENCODING MUST COLOUR EVERY
+                          KIND IN THE SET, OR NONE — ruling (ee). Once OUT went
+                          neutral, green on IN stopped distinguishing in from
+                          out and merely repeated the column header, while
+                          taking the entire remaining attention budget in the
+                          table: in a depleted month IN reads $6 of interest
+                          and OUT reads −$6,500, and the $6 was the loud one. */}
+                      <td className="px-3 py-2 text-right text-slate-700 tabular-nums">
                         {m.totals.inflow ? formatCurrency(m.totals.inflow) : "—"}
                       </td>
                       {/* OUT is demoted to slate-700 (#334155) — appendix
                           observation 1. Its red was constant on every row of a
                           projection where outflow is the expected state, so it
-                          carried no information while carrying alarm. IN keeps
-                          its green; see the note on `Amount` above for why that
-                          asymmetry is a calm-principle call rather than an
-                          information one. */}
+                          carried no information while carrying alarm. */}
                       <td className="px-3 py-2 text-right text-slate-700 tabular-nums">
                         {m.totals.outflow ? `−${formatCurrency(m.totals.outflow)}` : "—"}
                       </td>

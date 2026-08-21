@@ -255,9 +255,11 @@ From the design package **appendix**, observations 1 and 2. Both surfaces were o
 
 `Amount` is used in **five** places — the OPENING and CLOSING cells, the per-account `open`/`close` figures inside an expanded month, and the Transactions view's amount column. All of them stop colouring by sign.
 
-*Deliberately not changed:* the IN column stays green, and the category pills inside an expanded month keep their green/red treatment. Those encode a **category** (money in, money out), not the sign of a running balance — a distinction the widened rule turns on. **Sign-colouring goes, kind-colouring stays.**
+**The IN column is stripped too** — *see ruling (ee).* "Sign-colouring goes, kind-colouring stays" was the wrong line, and judging it live is what exposed it: once OUT went neutral, green on IN was no longer distinguishing in from out, just repeating the column header while taking the whole remaining attention budget on a column reading $6.
 
-**Judge this one live, not on paper.** With OUT neutral and IN still green, check on the actual page whether the pairing reads as *"good is green, bad is grey"*. The reasoning says it should not — they are categories, not a net pair — but the page is the authority, and this is cheap to look at before it ships.
+**A kind-encoding must colour every kind in the set, or none.** IN was one of two kinds with one coloured → strip.
+
+*Deliberately not changed:* the category pills inside an expanded month, which colour **both** inflow and outflow — so the encoding is real, and the same rule that strips IN keeps them. **Reviewed live and kept** (ruling ff): `bg-red-50` is pale enough that they read as ordinary bookkeeping rather than alarm. That is a hold, not a closure — see the watch item under item 11.
 
 **b. Soften the cash-zero date.** The CASH-ZERO DATE stat-card figure is the largest red element in the product and, for the primary user, the most anxiety-loaded number on the page. Render the **figure** in near-black (`#111827`), same size and weight.
 
@@ -312,6 +314,12 @@ From the design package **appendix**, observations 1 and 2. Both surfaces were o
 ### B · Decoration — LEAVE, no decision needed
 
 `$` prefixes (`FlowModal:92`, `AccountList:53`, `ExpenseList:116`/`377`, `ui:83`), `%` suffixes (`AccountList:334`, `Levers:340`, `AssumptionsPanel:117`), every `placeholder:` and `focus:border-` variant, the `▾`/`▸` caret (`LedgerView:141`), and `LedgerView:172` — which is `aria-hidden`, decorative by declaration.
+
+### Watch item, carried from item 10 — the expanded-ledger category pills
+
+Not a change to make; a thing to keep an eye on. `LedgerView.tsx:242`/`:248` colour inflow and outflow pills green/red inside an expanded month. Ruling (ff) **kept them** on two grounds — the kind rule permits them, and Liz confirmed live that `bg-red-50` reads as ordinary bookkeeping rather than alarm.
+
+**The calm principle still argues against them**, and the expanded view is where a wall of red would reappear: on the example's depleted May 2027 the ratio is **3 outflow pills to 2 inflow**, and one of the two inflows merely mirrors an outflow transfer. Re-open on evidence — darker tints, a worse ratio, or the expanded view becoming a primary surface — and re-open it *by opening the expanded view*, which is the only place the question is visible.
 
 ### Not in scope for item 11
 
