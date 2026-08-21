@@ -277,13 +277,15 @@ From the design package **appendix**, observations 1 and 2. Both surfaces were o
 
 ## 11 · Text-contrast sweep — `text-zinc-400` → `text-zinc-500`
 
-**Added during item 9. Build it AFTER item 10.** Item 10 opens `LedgerView.tsx:32` (the `Amount` component) to strip sign-colouring, and that line is also on this list — doing the sweep first means touching it twice and re-litigating the zero case.
+**Added during item 9. Build it AFTER item 10.** Item 10 opens `LedgerView.tsx:48` (the `Amount` component) to strip sign-colouring, and that line is also on this list — doing the sweep first means touching it twice and re-litigating the zero case.
 
 ### Why this is a V2.1 item and not a V3 carry-forward
 
 **Item 9 created the inconsistency.** Before it, all 50 uses of `text-zinc-400` were uniformly **2.56:1** — wrong, but coherent. After it, the footer disclaimer is the only `zinc-500` text on the page, so *"the contrast was fixed on the boilerplate and left failing on the account balances"* is now a visible resting state rather than a latent one. A release whose purpose is credibility should not ship that as its resting position.
 
 `text-zinc-500` is `#71717a` at **4.83:1** — passes AA for normal text, measured in Chrome, and identical to the `#6b7280` §7 asked for. See ruling (z) for the sibling argument about the ledger.
+
+> **Line numbers are as of the item 10 commit and WILL drift.** Item 10's own comment blocks moved every `LedgerView.tsx` reference in this file once already. Grep the quoted token — `text-zinc-400` plus the surrounding text — rather than trusting the number; the token is the durable anchor and the number is a convenience.
 
 ### A · Text carrying meaning — RAISE
 
@@ -293,10 +295,10 @@ From the design package **appendix**, observations 1 and 2. Both surfaces were o
 | `AccountList.tsx:259` | account-type helper line |
 | `TimeAnchor.tsx:36` | "Snapshot from {date}." |
 | `RunwayApp.tsx:354` | baseline help text |
-| `LedgerView.tsx:71` | **the "≈" estimate convention** — the sentence item 3 exists to make visible |
-| `LedgerView.tsx:76` | "Export" label |
-| `LedgerView.tsx:213`, `:226` | "open" / "close" labels on per-account figures |
-| `LedgerView.tsx:259` | transaction labels |
+| `LedgerView.tsx:92` (`Lines marked “≈”`) | **the "≈" estimate convention** — the sentence item 3 exists to make visible |
+| `LedgerView.tsx:96` (`>Export<`) | "Export" label |
+| `LedgerView.tsx:244`, `:257` (`open <Amount` / `close <Amount`) | "open" / "close" labels on per-account figures |
+| `LedgerView.tsx:290` (`· {t.label}`) | transaction labels |
 | `RunwayChart.tsx:409` | "No cash-zero within this 24-month view." — **at 10.5px** |
 | `Toolbar.tsx:75`, `:191` | "Examples" / "Saved" section headings |
 | `Toolbar.tsx:221` | saved-pill date + notes |
@@ -307,17 +309,17 @@ From the design package **appendix**, observations 1 and 2. Both surfaces were o
 
 ### C · Deliberate de-emphasis — LEAVE, per ruling (dd)
 
-`RunwayChart.tsx:369`, `:379`, `:453`; `LedgerView.tsx:203`, `:206`, `:32`.
+`RunwayChart.tsx:369`, `:379`, `:453`; `LedgerView.tsx:234`, `:238`, `:50`.
 
 **Read ruling (dd) before touching these.** None of them is colour-alone — every one pairs the grey with a second channel, so the accessibility test *permits* raising all six. They stay grey for a **scanning** reason, not an accessibility one: empty rows rendered as loud as funded ones is noise in a panel whose contract is that the rows reconcile.
 
 ### B · Decoration — LEAVE, no decision needed
 
-`$` prefixes (`FlowModal:92`, `AccountList:53`, `ExpenseList:116`/`377`, `ui:83`), `%` suffixes (`AccountList:334`, `Levers:340`, `AssumptionsPanel:117`), every `placeholder:` and `focus:border-` variant, the `▾`/`▸` caret (`LedgerView:141`), and `LedgerView:172` — which is `aria-hidden`, decorative by declaration.
+`$` prefixes (`FlowModal.tsx:92`, `AccountList.tsx:53`, `ExpenseList.tsx:116`/`:377`, `ui.tsx:83`), `%` suffixes (`AccountList.tsx:334`, `Levers.tsx:340`, `AssumptionsPanel.tsx:117`), every `placeholder:` and `focus:border-` variant, the `▾`/`▸` caret (`LedgerView.tsx:161`), and `LedgerView.tsx:203` — which is `aria-hidden`, decorative by declaration.
 
 ### Watch item, carried from item 10 — the expanded-ledger category pills
 
-Not a change to make; a thing to keep an eye on. `LedgerView.tsx:242`/`:248` colour inflow and outflow pills green/red inside an expanded month. Ruling (ff) **kept them** on two grounds — the kind rule permits them, and Liz confirmed live that `bg-red-50` reads as ordinary bookkeeping rather than alarm.
+Not a change to make; a thing to keep an eye on. `LedgerView.tsx:246`/`:252` colour inflow and outflow pills green/red inside an expanded month. Ruling (ff) **kept them** on two grounds — the kind rule permits them, and Liz confirmed live that `bg-red-50` reads as ordinary bookkeeping rather than alarm.
 
 **The calm principle still argues against them**, and the expanded view is where a wall of red would reappear: on the example's depleted May 2027 the ratio is **3 outflow pills to 2 inflow**, and one of the two inflows merely mirrors an outflow transfer. Re-open on evidence — darker tints, a worse ratio, or the expanded view becoming a primary surface — and re-open it *by opening the expanded view*, which is the only place the question is visible.
 
