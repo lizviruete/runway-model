@@ -285,41 +285,49 @@ From the design package **appendix**, observations 1 and 2. Both surfaces were o
 
 `text-zinc-500` is `#71717a` at **4.83:1** — passes AA for normal text, measured in Chrome, and identical to the `#6b7280` §7 asked for. See ruling (z) for the sibling argument about the ledger.
 
-> **Line numbers are as of the item 10 commit and WILL drift.** Item 10's own comment blocks moved every `LedgerView.tsx` reference in this file once already. Grep the quoted token — `text-zinc-400` plus the surrounding text — rather than trusting the number; the token is the durable anchor and the number is a convenience.
+> **Line numbers drift, so they are machine-checked. Run `npm run check:docs` after editing any component.**
+>
+> Item 10's own comment blocks moved ten `LedgerView.tsx` references in this file, several onto other `text-zinc-400` spans that looked plausible. The checker pairs each reference with the anchor quoted beside it — `` `AccountList.tsx:108` (`accounts-summary`) `` — confirms the line still contains it, and when it does not, **tells you the line it moved to**. Add the anchor when you add a reference; without one the script reports it unverified rather than passing it.
+>
+> Anchors deliberately avoid the colour class itself, since item 11 is the change that rewrites it.
 
 ### A · Text carrying meaning — RAISE
 
 | Site | What it carries |
 | --- | --- |
-| `AccountList.tsx:108` | accounts header summary — assets total + tap-order hint |
-| `AccountList.tsx:259` | account-type helper line |
-| `TimeAnchor.tsx:36` | "Snapshot from {date}." |
-| `RunwayApp.tsx:354` | baseline help text |
+| `AccountList.tsx:108` (`accounts-summary`) | accounts header summary — assets total + tap-order hint |
+| `AccountList.tsx:259` (`pl-8 text-[11px]`) | account-type helper line |
+| `TimeAnchor.tsx:36` (`Snapshot from`) | "Snapshot from {date}." |
+| `RunwayApp.tsx:354` (`BASELINE_HELP`) | baseline help text |
 | `LedgerView.tsx:92` (`Lines marked “≈”`) | **the "≈" estimate convention** — the sentence item 3 exists to make visible |
 | `LedgerView.tsx:96` (`>Export<`) | "Export" label |
 | `LedgerView.tsx:244`, `:257` (`open <Amount` / `close <Amount`) | "open" / "close" labels on per-account figures |
 | `LedgerView.tsx:290` (`· {t.label}`) | transaction labels |
-| `RunwayChart.tsx:409` | "No cash-zero within this 24-month view." — **at 10.5px** |
-| `Toolbar.tsx:75`, `:191` | "Examples" / "Saved" section headings |
-| `Toolbar.tsx:221` | saved-pill date + notes |
-| `Levers.tsx:189` | lever event hint |
-| `ExpenseList.tsx:195` | expense row hint |
-| `AssumptionsPanel.tsx:129` | "(optional)" |
-| `ui.tsx:46`, `:92` | **shared hint slots** — these fan out across every card |
+| `RunwayChart.tsx:409` (`chart-no-cash-zero`) | "No cash-zero within this 24-month view." — **at 10.5px** |
+| `Toolbar.tsx:75`, `:191` (`>Examples<` / `>Saved<`) | "Examples" / "Saved" section headings |
+| `Toolbar.tsx:221` (`px-1 text-[10px]`) | saved-pill date + notes |
+| `Levers.tsx:189` (`lever-event-hint`) | lever event hint |
+| `ExpenseList.tsx:195` (`· {hint}`) | expense row hint |
+| `AssumptionsPanel.tsx:129` (`Penalty-free after`) | "(optional)" |
+| `ui.tsx:46`, `:92` (`{hint}</span>` / `hintTestId`) | **shared hint slots** — these fan out across every card |
 
 ### C · Deliberate de-emphasis — LEAVE, per ruling (dd)
 
-`RunwayChart.tsx:369`, `:379`, `:453`; `LedgerView.tsx:234`, `:238`, `:50`.
+`RunwayChart.tsx:369`, `:379`, `:453` (`line-through` / `row.zero ?` / `>excluded</span>`); `LedgerView.tsx:234`, `:238`, `:50` (`w-40 shrink-0` / `excludedLedgerLine` / `value === 0`).
 
 **Read ruling (dd) before touching these.** None of them is colour-alone — every one pairs the grey with a second channel, so the accessibility test *permits* raising all six. They stay grey for a **scanning** reason, not an accessibility one: empty rows rendered as loud as funded ones is noise in a panel whose contract is that the rows reconcile.
 
 ### B · Decoration — LEAVE, no decision needed
 
-`$` prefixes (`FlowModal.tsx:92`, `AccountList.tsx:53`, `ExpenseList.tsx:116`/`:377`, `ui.tsx:83`), `%` suffixes (`AccountList.tsx:334`, `Levers.tsx:340`, `AssumptionsPanel.tsx:117`), every `placeholder:` and `focus:border-` variant, the `▾`/`▸` caret (`LedgerView.tsx:161`), and `LedgerView.tsx:203` — which is `aria-hidden`, decorative by declaration.
+`$` prefixes — `FlowModal.tsx:92` (`pl-2.5 text-sm`), `AccountList.tsx:53` (`pl-1.5 text-xs`), `ExpenseList.tsx:116`/`:377` (`pl-2 text-sm`), `ui.tsx:83` (`{prefix}</span>`).
+
+`%` suffixes — `AccountList.tsx:334` (`pr-1.5 text-xs`), `Levers.tsx:340` (`pr-2 text-sm`), `AssumptionsPanel.tsx:117` (`pr-2 text-xs`).
+
+Every `placeholder:` and `focus:border-` variant; the `▾`/`▸` caret at `LedgerView.tsx:161` (`{open ? "▾" : "▸"}`); and `LedgerView.tsx:203` (`aria-hidden="true"`), decorative by declaration.
 
 ### Watch item, carried from item 10 — the expanded-ledger category pills
 
-Not a change to make; a thing to keep an eye on. `LedgerView.tsx:246`/`:252` colour inflow and outflow pills green/red inside an expanded month. Ruling (ff) **kept them** on two grounds — the kind rule permits them, and Liz confirmed live that `bg-red-50` reads as ordinary bookkeeping rather than alarm.
+Not a change to make; a thing to keep an eye on. `LedgerView.tsx:246`/`:252` (`bg-emerald-50` / `bg-red-50`) colour inflow and outflow pills green/red inside an expanded month. Ruling (ff) **kept them** on two grounds — the kind rule permits them, and Liz confirmed live that `bg-red-50` reads as ordinary bookkeeping rather than alarm.
 
 **The calm principle still argues against them**, and the expanded view is where a wall of red would reappear: on the example's depleted May 2027 the ratio is **3 outflow pills to 2 inflow**, and one of the two inflows merely mirrors an outflow transfer. Re-open on evidence — darker tints, a worse ratio, or the expanded view becoming a primary surface — and re-open it *by opening the expanded view*, which is the only place the question is visible.
 
@@ -337,13 +345,13 @@ These controls render at `text-zinc-400` — **2.56:1** — in their resting sta
 
 | Site | Control |
 | --- | --- |
-| `Toolbar.tsx:180` | **"See an Example"** — a primary entry point |
-| `Toolbar.tsx:176` | "Start fresh" |
-| `Toolbar.tsx:128`, `:161` | Cancel (save / save-baseline) |
-| `Toolbar.tsx:216` | delete a saved scenario |
-| `AccountList.tsx:211`, `:239` | remove / collapse an account |
-| `ExpenseList.tsx:171` | remove an expense row |
-| `Levers.tsx:197` | remove a lever |
+| `Toolbar.tsx:180` (`onSeeExample`) | **"See an Example"** — a primary entry point |
+| `Toolbar.tsx:176` (`onStartFresh`) | "Start fresh" |
+| `Toolbar.tsx:128`, `:161` (`setSaving(false)` / `setSavingBaseline(false)`) | Cancel (save / save-baseline) |
+| `Toolbar.tsx:216` (`hover:bg-red-50 hover:text-red-500`) | delete a saved scenario |
+| `AccountList.tsx:211`, `:239` (`py-1 text-xs` / `px-1.5 text-xs`) | remove / collapse an account |
+| `ExpenseList.tsx:171` (`h-7 w-7 shrink-0`) | remove an expense row |
+| `Levers.tsx:197` (`shrink-0 rounded px-1.5 py-1`) | remove a lever |
 
 **The framing that makes this a decision rather than a preference:** hover does nothing for keyboard or touch. So this is not a control that is *dim until you interact with it* — it is **a control that is illegible to some users in every state they can reach**. "See an Example" is a primary way into the product, sitting below the large-text floor for anyone not using a mouse.
 

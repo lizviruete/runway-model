@@ -358,7 +358,7 @@ Practically, that means before reporting an item done: open it, drive the thing 
 
 ### A second instance — item 10, and it is the same failure with the check inverted
 
-Item 10 reported *"zero red elements anywhere in the ledger, measured across every rendered leaf node."* The measurement was real and the claim was false: it ran against the **collapsed** table. `LedgerView.tsx:252` renders outflow category pills as `bg-red-50` / `text-red-700` inside the **expanded per-account block**, which the sweep never opened.
+Item 10 reported *"zero red elements anywhere in the ledger, measured across every rendered leaf node."* The measurement was real and the claim was false: it ran against the **collapsed** table. `LedgerView.tsx:252` (`bg-red-50`) renders outflow category pills as `bg-red-50` / `text-red-700` inside the **expanded per-account block**, which the sweep never opened.
 
 For the primary user — someone in an income gap — **outflow pills are nearly all the pills there are**. So the wall of red did not go. It moved down one level, into the surface that exists to be "the auditable trail behind every number".
 
@@ -534,14 +534,14 @@ Item 9's contrast fix surfaced 50 uses of `text-zinc-400` at **2.56:1**, and the
 
 | Site | The second channel |
 | --- | --- |
-| `RunwayChart.tsx:369` | `line-through` |
-| `RunwayChart.tsx:453` | the literal word "excluded" |
+| `RunwayChart.tsx:369` (`truncate text-zinc-400 line-through`) | `line-through` |
+| `RunwayChart.tsx:453` (`>excluded</span>`) | the literal word "excluded" |
 | `LedgerView.tsx:234` (`line-through`) | `line-through` |
 | `LedgerView.tsx:238` (`excludedLedgerLine`) | `excludedLedgerLine()` states the held balance in words |
 | `LedgerView.tsx:50` (`value === 0`) | the number already reads `$0` |
-| `RunwayChart.tsx:379` | **the number already reads `$0`** — `tooltipModel` sets `value: formatCurrency(...)`, and the comment above it says the `$0` is shown deliberately rather than dropped |
+| `RunwayChart.tsx:379` (`row.zero ?`) | **the number already reads `$0`** — `tooltipModel` sets `value: formatCurrency(...)`, and the comment above it says the `$0` is shown deliberately rather than dropped |
 
-`RunwayChart.tsx:379` was initially called the one colour-alone case. It is not. There is no colour-alone case in the category.
+`RunwayChart.tsx:379` (`row.zero ?`) was initially called the one colour-alone case. It is not. There is no colour-alone case in the category.
 
 ### Why the tooltip rows stay grey anyway
 
@@ -596,7 +596,7 @@ With IN on slate-700, the ledger's two grey ramps now split **exactly on flows v
 
 ## ff · The expanded-ledger category pills were reviewed and KEPT — for now
 
-Item 10 stripped colour from every ledger column. The **category pills inside an expanded month** (`LedgerView.tsx:246` / `:252` — `bg-emerald-50` and `bg-red-50`) keep their green/red, and this records that as a decision rather than leaving it as the absence of one.
+Item 10 stripped colour from every ledger column. The **category pills inside an expanded month** (`LedgerView.tsx:246` / `:252` (`bg-emerald-50` / `bg-red-50`)) keep their green/red, and this records that as a decision rather than leaving it as the absence of one.
 
 ### Two independent reasons, and they agreed
 
