@@ -356,6 +356,16 @@ That makes **five rendered-layer defects** this release — the type-label lower
 
 Practically, that means before reporting an item done: open it, drive the thing the item added, and read the actual rendered values — not a screenshot alone, which shows presence but not correctness. Ruling (a) confines testing to the pure layer; this is the compensating control, and it is load-bearing.
 
+### A second instance — item 10, and it is the same failure with the check inverted
+
+Item 10 reported *"zero red elements anywhere in the ledger, measured across every rendered leaf node."* The measurement was real and the claim was false: it ran against the **collapsed** table. `LedgerView.tsx:252` (`bg-red-50`) renders outflow category pills as `bg-red-50` / `text-red-700` inside the **expanded per-account block**, which the sweep never opened.
+
+For the primary user — someone in an income gap — **outflow pills are nearly all the pills there are**. So the wall of red did not go. It moved down one level, into the surface that exists to be "the auditable trail behind every number".
+
+The tooltip instance was *unreachable code that looked covered*. This is its mirror: **reachable code that the verification never reached**. Both produce a confident green from a check that never touched the thing it claimed to check.
+
+**So the live pass needs the same question the mutation table needs:** not "did I verify it" but "what can this verification structurally not see?" A DOM sweep sees only what is currently mounted. Anything behind a disclosure — an expanded row, a tab, a hover, a modal, an empty state — is invisible to it and will report clean. **Enumerate the disclosure states and open each one**, or say plainly which ones went unchecked.
+
 ---
 
 ## x · Sanctioned deviations from §5's geometry
@@ -506,6 +516,100 @@ In item 8 the code was reachable, correct, and covered. Eleven mutations were al
 **Applies to seed data as much as to test fixtures.** The example scenario is a fixture the user reads, and an implausible one misleads more directly than a test fixture ever can — see [[z]] for what item 8's seed had to change and why.
 
 Round numbers in shipped seed data are a deliberate exception with its own justification (nobody should mistake the demo for a real person's finances), which is exactly why the *relationships between them* need checking against reality even when the values themselves are round: $7,000 of severance against $8,000 of spend is round AND unambiguous, where $8,000 against $8,000 was round and sat on the boundary.
+
+---
+
+## dd · "Does colour carry meaning alone?" and "does raising it cost scanning?" are two questions
+
+Item 9's contrast fix surfaced 50 uses of `text-zinc-400` at **2.56:1**, and the audit of them applied ONE test to answer TWO questions. That produced a wrong claim in each direction.
+
+| Question | Domain | Answer, for the de-emphasis cases |
+| --- | --- | --- |
+| Does colour carry the meaning **alone**? | accessibility | **Nowhere.** Not one case. |
+| Does raising it cost **scanning**? | design | **Yes**, in the chart tooltip. |
+
+### What is actually true about the de-emphasis cases
+
+**"Raising these would break the signal" was true of NONE of them.** Every one pairs `text-zinc-400` with a second channel that carries the meaning by itself:
+
+| Site | The second channel |
+| --- | --- |
+| `RunwayChart.tsx:369` (`truncate text-zinc-400 line-through`) | `line-through` |
+| `RunwayChart.tsx:453` (`>excluded</span>`) | the literal word "excluded" |
+| `LedgerView.tsx:234` (`line-through`) | `line-through` |
+| `LedgerView.tsx:238` (`excludedLedgerLine`) | `excludedLedgerLine()` states the held balance in words |
+| `LedgerView.tsx:50` (`value === 0`) | the number already reads `$0` |
+| `RunwayChart.tsx:379` (`row.zero ?`) | **the number already reads `$0`** — `tooltipModel` sets `value: formatCurrency(...)`, and the comment above it says the `$0` is shown deliberately rather than dropped |
+
+`RunwayChart.tsx:379` (`row.zero ?`) was initially called the one colour-alone case. It is not. There is no colour-alone case in the category.
+
+### Why the tooltip rows stay grey anyway
+
+**Greying `$0` rows costs scannability, not information.** In a panel whose contract is that the rows sum to net liquid ([[x]]), empty rows rendered as loud as funded ones is noise — the reader is scanning for which accounts still hold something.
+
+So the decision stands, but **it is a scanning decision, not a second-channel one**, and it has to be recorded as such. Filed under "colour carries the meaning" it reads as an accessibility constraint, and the next person to touch it — item 11 — will apply the accessibility test, find it passes, and raise it.
+
+### The general form
+
+When a de-emphasis treatment comes up for review, answer both questions and say which one you are answering. The accessibility question governs whether raising it is **permitted**; the design question governs whether raising it is **wanted**. A "leave it" that does not say which question produced it will be re-derived wrongly.
+
+---
+
+## ee · A kind-encoding must colour EVERY kind in the set, or none
+
+Ruling (z) drew the line as **sign-colouring goes, kind-colouring stays**, and used it to keep the IN column green. That was wrong, and the phrasing is what hid it.
+
+**Colour encoding a KIND needs at least two kinds coloured to be doing that job.** One kind coloured and the rest neutral is not an encoding — there is nothing to tell apart.
+
+### What actually happened
+
+Once OUT went neutral, green on IN **stopped distinguishing in from out** and merely repeated the column header, which already says IN. Worse, it became the only colour left in the table, so it took the entire remaining attention budget — and pointed it at the least decision-relevant column. In a depleted month of the example, IN reads **$6** of interest against OUT's **−$6,500**, and the $6 was the loud one.
+
+The argument was already in the codebase. `lib/cashFlowSummary.ts`, written for item 7:
+
+> green-for-positive fails it inverted, because rewarding positive with colour punishes negative by its absence
+
+That justified NET having no colour. It applies to IN unchanged. "IN stays green" was never a considered exception to item 7's principle — it was a column the principle had not been applied to.
+
+### The conflation to avoid repeating
+
+Ruling (z) established that **colouring IN is not the same error as colouring a running balance**. It never established that **colouring IN is right**. Those are different claims, and "kind not sign" collapsed them into one.
+
+### Applying the sharpened rule
+
+| Surface | Kinds in the set | Coloured | Verdict |
+| --- | --- | --- | --- |
+| IN column | 2 (in, out) | 1, after OUT was demoted | **strip** — [[z]] |
+| Category pills in an expanded month | 2 (inflow, outflow) | both | **the encoding is real** |
+
+The same rule that strips IN is the rule that keeps the pills. That is the test working, not an exception to it.
+
+**The pills were also reviewed live and kept** — see [[ff]]. The rule keeps them and the live look agreed; the calm principle still argues against them, which is why that is a hold rather than a closure.
+
+### A note handed to item 11, not formalized here
+
+With IN on slate-700, the ledger's two grey ramps now split **exactly on flows versus balances**: IN / OUT / NET are slate-700 `#314158`, OPENING / CLOSING are zinc-700 `#3f3f46`.
+
+**That is accidental, not designed** — item 7 shipped NET as slate, the appendix specified slate for OUT, and OPENING/CLOSING are legacy zinc. It happens to look like a rule. Item 11 either unifies the ramp deliberately or makes it a real rule; it must not be treated as intentional in the meantime just because it currently lines up.
+
+---
+
+## ff · The expanded-ledger category pills were reviewed and KEPT — for now
+
+Item 10 stripped colour from every ledger column. The **category pills inside an expanded month** (`LedgerView.tsx:246` / `:252` (`bg-emerald-50` / `bg-red-50`)) keep their green/red, and this records that as a decision rather than leaving it as the absence of one.
+
+### Two independent reasons, and they agreed
+
+1. **The kind rule keeps them.** Per [[ee]], a kind-encoding must colour every kind in the set or none. The pills colour **both** inflow and outflow, so unlike the IN column they are genuinely distinguishing two things rather than repeating a label. The same test that stripped IN keeps these.
+2. **Liz looked at the expanded ledger live and they read as ordinary bookkeeping, not alarm.** `bg-red-50` is pale enough that the outflow pills read as ledger convention rather than warning — which is exactly the register the calm principle wants.
+
+That second reason is the load-bearing one. Reason 1 says the encoding is *doing a job*; it does not say the job is worth the alarm. Only the live look answers that, and it was made on the real expanded view, not on the collapsed table that produced [[w]]'s second failure.
+
+### The "for now" is part of the ruling
+
+**The calm principle still argues against them.** For the primary user — someone in an income gap — outflow pills are nearly all the pills there are, so the expanded view is where a wall of red would reappear if the pale tint ever stopped being pale. Measured on the example's depleted May 2027: **3 outflow pills to 2 inflow**, and one of those two is a "Transfer in" mirroring a "Transfer out".
+
+So this is a **deliberate hold, not a closed question.** It goes on the item 11 / 12 pile as a **watch item**: if the pill tints are ever darkened, if the ratio worsens, or if the expanded view becomes a primary surface rather than an audit one, it comes back up. Re-open it on evidence, not on taste — and re-open it by looking at the expanded view, which is the only place the question is visible at all.
 
 ---
 

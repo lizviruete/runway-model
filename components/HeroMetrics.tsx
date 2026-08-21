@@ -66,7 +66,21 @@ export function HeroMetrics({
         label="Cash-zero date"
         value={runway.cashZeroDate ? formatDate(runway.cashZeroDate) : "—"}
         sub={runway.cashZeroDate ? "When funds run out" : "Within the modeled horizon"}
-        tone={runway.cashZeroDate ? "bad" : "good"}
+        // The date renders NEUTRAL, not red — appendix observation 2. It was the
+        // largest red element in the product and, for someone in an income gap,
+        // the most anxiety-loaded number on the page. Colouring it alarms
+        // someone about a fact they cannot change by looking at it.
+        //
+        // `tone="default"` rather than a new near-black token: it is already
+        // `text-zinc-900` (#18181b) in this component, and importing the spec's
+        // #111827 would add a second grey family for one figure. Same call as
+        // item 9's zinc-500.
+        //
+        // The chart's red dashed cash-zero marker STAYS RED. That is where the
+        // alarm belongs — a marker on a timeline, not a headline. And per ruling
+        // (j), vs-baseline keeps BOTH its colours: that red marks a state change
+        // you just caused and can undo, which is the one thing emphasis is for.
+        tone={runway.cashZeroDate ? "default" : "good"}
       />
       <Metric
         testId="metric-vs-baseline"

@@ -255,9 +255,11 @@ From the design package **appendix**, observations 1 and 2. Both surfaces were o
 
 `Amount` is used in **five** places — the OPENING and CLOSING cells, the per-account `open`/`close` figures inside an expanded month, and the Transactions view's amount column. All of them stop colouring by sign.
 
-*Deliberately not changed:* the IN column stays green, and the category pills inside an expanded month keep their green/red treatment. Those encode a **category** (money in, money out), not the sign of a running balance — a distinction the widened rule turns on. **Sign-colouring goes, kind-colouring stays.**
+**The IN column is stripped too** — *see ruling (ee).* "Sign-colouring goes, kind-colouring stays" was the wrong line, and judging it live is what exposed it: once OUT went neutral, green on IN was no longer distinguishing in from out, just repeating the column header while taking the whole remaining attention budget on a column reading $6.
 
-**Judge this one live, not on paper.** With OUT neutral and IN still green, check on the actual page whether the pairing reads as *"good is green, bad is grey"*. The reasoning says it should not — they are categories, not a net pair — but the page is the authority, and this is cheap to look at before it ships.
+**A kind-encoding must colour every kind in the set, or none.** IN was one of two kinds with one coloured → strip.
+
+*Deliberately not changed:* the category pills inside an expanded month, which colour **both** inflow and outflow — so the encoding is real, and the same rule that strips IN keeps them. **Reviewed live and kept** (ruling ff): `bg-red-50` is pale enough that they read as ordinary bookkeeping rather than alarm. That is a hold, not a closure — see the watch item under item 11.
 
 **b. Soften the cash-zero date.** The CASH-ZERO DATE stat-card figure is the largest red element in the product and, for the primary user, the most anxiety-loaded number on the page. Render the **figure** in near-black (`#111827`), same size and weight.
 
@@ -270,6 +272,92 @@ From the design package **appendix**, observations 1 and 2. Both surfaces were o
 **Not in scope, recorded so it does not get re-proposed:** capping or truncating the ledger in the never-positive state. See ruling (aa) — the perceived heaviness is colour, not row count.
 
 **Deferred until after this item:** the never-positive summary line's copy. See ruling (bb) — it is being judged above three red columns today, so re-judge it once they are neutral.
+
+---
+
+## 11 · Text-contrast sweep — `text-zinc-400` → `text-zinc-500`
+
+**Added during item 9. Build it AFTER item 10.** Item 10 opens `LedgerView.tsx:48` (the `Amount` component) to strip sign-colouring, and that line is also on this list — doing the sweep first means touching it twice and re-litigating the zero case.
+
+### Why this is a V2.1 item and not a V3 carry-forward
+
+**Item 9 created the inconsistency.** Before it, all 50 uses of `text-zinc-400` were uniformly **2.56:1** — wrong, but coherent. After it, the footer disclaimer is the only `zinc-500` text on the page, so *"the contrast was fixed on the boilerplate and left failing on the account balances"* is now a visible resting state rather than a latent one. A release whose purpose is credibility should not ship that as its resting position.
+
+`text-zinc-500` is `#71717a` at **4.83:1** — passes AA for normal text, measured in Chrome, and identical to the `#6b7280` §7 asked for. See ruling (z) for the sibling argument about the ledger.
+
+> **Line numbers drift, so they are machine-checked. Run `npm run check:docs` after editing any component.**
+>
+> Item 10's own comment blocks moved ten `LedgerView.tsx` references in this file, several onto other `text-zinc-400` spans that looked plausible. The checker pairs each reference with the anchor quoted beside it — `` `AccountList.tsx:108` (`accounts-summary`) `` — confirms the line still contains it, and when it does not, **tells you the line it moved to**. Add the anchor when you add a reference; without one the script reports it unverified rather than passing it.
+>
+> Anchors deliberately avoid the colour class itself, since item 11 is the change that rewrites it.
+>
+> **When item 11 lands, read the UNVERIFIED count — not just the exit code.** `check:docs` exits 1 on *broken* references only; an unanchored one reports honestly in the summary and still exits 0. That is deliberate — a checker strict enough to be annoying gets bypassed — but it is the shape of a check that erodes quietly. Item 11 adds references, some without anchors, the exit code stays 0, and coverage drifts down while the green stays green. **That is ruling (m) wearing the checker's clothes: a green that stopped meaning what it meant.** If the unverified count went up, anchor them before merging.
+
+### A · Text carrying meaning — RAISE
+
+| Site | What it carries |
+| --- | --- |
+| `AccountList.tsx:108` (`accounts-summary`) | accounts header summary — assets total + tap-order hint |
+| `AccountList.tsx:259` (`pl-8 text-[11px]`) | account-type helper line |
+| `TimeAnchor.tsx:36` (`Snapshot from`) | "Snapshot from {date}." |
+| `RunwayApp.tsx:354` (`BASELINE_HELP`) | baseline help text |
+| `LedgerView.tsx:92` (`Lines marked “≈”`) | **the "≈" estimate convention** — the sentence item 3 exists to make visible |
+| `LedgerView.tsx:96` (`>Export<`) | "Export" label |
+| `LedgerView.tsx:244`, `:257` (`open <Amount` / `close <Amount`) | "open" / "close" labels on per-account figures |
+| `LedgerView.tsx:290` (`· {t.label}`) | transaction labels |
+| `RunwayChart.tsx:409` (`chart-no-cash-zero`) | "No cash-zero within this 24-month view." — **at 10.5px** |
+| `Toolbar.tsx:75`, `:191` (`>Examples<` / `>Saved<`) | "Examples" / "Saved" section headings |
+| `Toolbar.tsx:221` (`px-1 text-[10px]`) | saved-pill date + notes |
+| `Levers.tsx:189` (`lever-event-hint`) | lever event hint |
+| `ExpenseList.tsx:195` (`· {hint}`) | expense row hint |
+| `AssumptionsPanel.tsx:129` (`Penalty-free after`) | "(optional)" |
+| `ui.tsx:46`, `:92` (`{hint}</span>` / `hintTestId`) | **shared hint slots** — these fan out across every card |
+
+### C · Deliberate de-emphasis — LEAVE, per ruling (dd)
+
+`RunwayChart.tsx:369`, `:379`, `:453` (`line-through` / `row.zero ?` / `>excluded</span>`); `LedgerView.tsx:234`, `:238`, `:50` (`w-40 shrink-0` / `excludedLedgerLine` / `value === 0`).
+
+**Read ruling (dd) before touching these.** None of them is colour-alone — every one pairs the grey with a second channel, so the accessibility test *permits* raising all six. They stay grey for a **scanning** reason, not an accessibility one: empty rows rendered as loud as funded ones is noise in a panel whose contract is that the rows reconcile.
+
+### B · Decoration — LEAVE, no decision needed
+
+`$` prefixes — `FlowModal.tsx:92` (`pl-2.5 text-sm`), `AccountList.tsx:53` (`pl-1.5 text-xs`), `ExpenseList.tsx:116`/`:377` (`pl-2 text-sm`), `ui.tsx:83` (`{prefix}</span>`).
+
+`%` suffixes — `AccountList.tsx:334` (`pr-1.5 text-xs`), `Levers.tsx:340` (`pr-2 text-sm`), `AssumptionsPanel.tsx:117` (`pr-2 text-xs`).
+
+Every `placeholder:` and `focus:border-` variant; the `▾`/`▸` caret at `LedgerView.tsx:161` (`{open ? "▾" : "▸"}`); and `LedgerView.tsx:203` (`aria-hidden="true"`), decorative by declaration.
+
+### Watch item, carried from item 10 — the expanded-ledger category pills
+
+Not a change to make; a thing to keep an eye on. `LedgerView.tsx:246`/`:252` (`bg-emerald-50` / `bg-red-50`) colour inflow and outflow pills green/red inside an expanded month. Ruling (ff) **kept them** on two grounds — the kind rule permits them, and Liz confirmed live that `bg-red-50` reads as ordinary bookkeeping rather than alarm.
+
+**The calm principle still argues against them**, and the expanded view is where a wall of red would reappear: on the example's depleted May 2027 the ratio is **3 outflow pills to 2 inflow**, and one of the two inflows merely mirrors an outflow transfer. Re-open on evidence — darker tints, a worse ratio, or the expanded view becoming a primary surface — and re-open it *by opening the expanded view*, which is the only place the question is visible.
+
+### Not in scope for item 11
+
+**The interactive controls — see item 12.** They are a separate decision and not a token swap.
+
+---
+
+## 12 · Control legibility — a decision, not a sweep
+
+**Do not absorb this into item 11.** It needs deciding on its own terms, and folding it into a token swap is how it gets decided by accident.
+
+These controls render at `text-zinc-400` — **2.56:1** — in their resting state, and rely on `hover:` to become legible:
+
+| Site | Control |
+| --- | --- |
+| `Toolbar.tsx:180` (`onSeeExample`) | **"See an Example"** — a primary entry point |
+| `Toolbar.tsx:176` (`onStartFresh`) | "Start fresh" |
+| `Toolbar.tsx:128`, `:161` (`setSaving(false)` / `setSavingBaseline(false)`) | Cancel (save / save-baseline) |
+| `Toolbar.tsx:216` (`hover:bg-red-50 hover:text-red-500`) | delete a saved scenario |
+| `AccountList.tsx:211`, `:239` (`py-1 text-xs` / `px-1.5 text-xs`) | remove / collapse an account |
+| `ExpenseList.tsx:171` (`h-7 w-7 shrink-0`) | remove an expense row |
+| `Levers.tsx:197` (`shrink-0 rounded px-1.5 py-1`) | remove a lever |
+
+**The framing that makes this a decision rather than a preference:** hover does nothing for keyboard or touch. So this is not a control that is *dim until you interact with it* — it is **a control that is illegible to some users in every state they can reach**. "See an Example" is a primary way into the product, sitting below the large-text floor for anyone not using a mouse.
+
+Why it is not a token swap: raising a control's resting colour changes what *interactive* looks like across the interface. The current design uses dimness as the affordance and hover as the reveal; replacing the resting value without replacing that system leaves controls that no longer read as controls. Decide the system, then apply it.
 
 ---
 
