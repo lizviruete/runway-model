@@ -290,6 +290,8 @@ From the design package **appendix**, observations 1 and 2. Both surfaces were o
 > Item 10's own comment blocks moved ten `LedgerView.tsx` references in this file, several onto other `text-zinc-400` spans that looked plausible. The checker pairs each reference with the anchor quoted beside it — `` `AccountList.tsx:108` (`accounts-summary`) `` — confirms the line still contains it, and when it does not, **tells you the line it moved to**. Add the anchor when you add a reference; without one the script reports it unverified rather than passing it.
 >
 > Anchors deliberately avoid the colour class itself, since item 11 is the change that rewrites it.
+>
+> **When item 11 lands, read the UNVERIFIED count — not just the exit code.** `check:docs` exits 1 on *broken* references only; an unanchored one reports honestly in the summary and still exits 0. That is deliberate — a checker strict enough to be annoying gets bypassed — but it is the shape of a check that erodes quietly. Item 11 adds references, some without anchors, the exit code stays 0, and coverage drifts down while the green stays green. **That is ruling (m) wearing the checker's clothes: a green that stopped meaning what it meant.** If the unverified count went up, anchor them before merging.
 
 ### A · Text carrying meaning — RAISE
 
